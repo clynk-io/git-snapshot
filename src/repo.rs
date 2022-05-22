@@ -1,6 +1,9 @@
 use crate::config::{Config, Remote};
 use crate::error::Error;
-use git2::{Index, IndexAddOption, Repository, Signature};
+use git2::{
+    Cred, CredentialHelper, Index, IndexAddOption, PushOptions, RemoteCallbacks, Repository,
+    Signature,
+};
 use std::path::Path;
 
 pub struct Repo {
@@ -50,7 +53,18 @@ impl Repo {
 
         for remote in &self.config.remotes {
             let mut remote = self.git_repo.find_remote(&remote.name)?;
-            remote.push(&[format!("{}:{}", snapshot_ref, snapshot_ref)], None)?;
+
+            let mut callbacks = RemoteCallbacks::new();
+            let config = self.git_repo.config()?;
+            callbacks.credentials(move |url, username, allowed_types| {
+                Cred::credential_helper(&config, url, username)
+            });
+            let mut opts = PushOptions::new();
+            opts.remote_callbacks(callbacks);
+            remote.push(
+                &[format!("{}:{}", snapshot_ref, snapshot_ref)],
+                Some(&mut opts),
+            )?;
         }
         Ok(())
     }
