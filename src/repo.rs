@@ -56,8 +56,8 @@ impl Repo {
 
             let mut callbacks = RemoteCallbacks::new();
             let mut config = self.git_repo.config()?;
-            config.add_file(&git2::Config::find_global()?, ConfigLevel::Global, false)?;
-            config.add_file(&git2::Config::find_system()?, ConfigLevel::System, false)?;
+            //config.add_file(&git2::Config::find_global()?, ConfigLevel::Global, false)?;
+            //config.add_file(&git2::Config::find_system()?, ConfigLevel::System, false)?;
 
             callbacks.credentials(move |url, username, allowed_types| {
                 Cred::credential_helper(&config, url, username)
