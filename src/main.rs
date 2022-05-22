@@ -1,8 +1,16 @@
-use git_snapshot::Repo;
+use git_snapshot::{Config, Remote, Repo};
 use std::env::current_dir;
 
 fn main() {
     let cwd = current_dir().unwrap();
-    let mut repo = Repo::new(cwd, None).unwrap();
+    let repo = Repo::new(
+        cwd,
+        Config {
+            remotes: vec![Remote {
+                name: "gh".to_owned(),
+            }],
+        },
+    )
+    .unwrap();
     repo.snapshot().unwrap();
 }

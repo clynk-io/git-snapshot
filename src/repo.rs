@@ -1,39 +1,29 @@
+use crate::config::{Config, Remote};
 use crate::error::Error;
-use git::refs::FullNameRef;
 use git2::{Index, IndexAddOption, Repository, Signature};
-use git_repository as git;
 use std::path::Path;
-
-pub struct RepoConfig {
-    path: String,
-    snapshot_branch: String,
-    remotes: Vec<Remote>,
-    frequency: u64,
-}
 
 pub struct Repo {
     git_repo: Repository,
-}
-
-pub struct Remote {
-    name: String,
-    snapshot_branch: String,
+    config: Config,
 }
 
 impl Repo {
-    pub fn new(path: impl AsRef<Path>, snapshot_branch: Option<String>) -> Result<Self, Error> {
+    pub fn new(path: impl AsRef<Path>, config: Config) -> Result<Self, Error> {
         let git_repo = Repository::discover(path)?;
-        println!("{:?}", git_repo.find_reference("HEAD").unwrap().target());
-        Ok(Self { git_repo })
+        Ok(Self { git_repo, config })
     }
 
     pub fn snapshot(&self) -> Result<(), Error> {
         let current_branch = self.current_branch()?;
-        print!("Branch: {}", current_branch);
-        let ref_name = format!("refs/heads/snapshots/{}", current_branch);
+
+        let snapshot_ref = format!("refs/heads/snapshots/{}", current_branch);
         let mut index = Index::new()?;
         self.git_repo.set_index(&mut index)?;
         index.add_all(&["*"], IndexAddOption::DEFAULT, None)?;
+        if index.is_empty() {
+            return Ok(());
+        }
         let tree = index.write_tree()?;
         let tree = self.git_repo.find_tree(tree)?;
 
@@ -41,12 +31,12 @@ impl Repo {
 
         let parent = self
             .git_repo
-            .find_reference(&ref_name)
+            .find_reference(&snapshot_ref)
             .and_then(|r| r.peel_to_commit())
             .ok();
 
         self.git_repo.commit(
-            Some(&ref_name),
+            Some(&snapshot_ref),
             &signature,
             &signature,
             "snapshot",
@@ -57,6 +47,11 @@ impl Repo {
                 .map(std::slice::from_ref)
                 .unwrap_or_default(),
         )?;
+
+        for remote in &self.config.remotes {
+            let mut remote = self.git_repo.find_remote(&remote.name)?;
+            remote.push(&[format!("{}:{}", snapshot_ref, snapshot_ref)], None)?;
+        }
         Ok(())
     }
 
