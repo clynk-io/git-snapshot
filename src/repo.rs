@@ -62,7 +62,10 @@ impl Repo {
             if let Ok(p) = git2::Config::find_system() {
                 config.add_file(&p, ConfigLevel::System, true)?;
             }
-
+            for entry in &config.entries(None).unwrap() {
+                let entry = entry.unwrap();
+                println!("{} => {}", entry.name().unwrap(), entry.value().unwrap());
+            }
             callbacks.credentials(move |url, username, allowed_types| {
                 println!("{:?}", allowed_types);
                 Cred::credential_helper(&config, url, username)
