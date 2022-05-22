@@ -65,12 +65,12 @@ impl Repo {
 
             let mut callbacks = RemoteCallbacks::new();
             let mut config = self.git_repo.config()?;
-            if let Ok(p) = git2::Config::find_global() {
-                config.add_file(&p, ConfigLevel::Global, true)?;
-            }
-            if let Ok(p) = git2::Config::find_system() {
-                config.add_file(&p, ConfigLevel::System, true)?;
-            }
+            // if let Ok(p) = git2::Config::find_global() {
+            //     config.add_file(&p, ConfigLevel::Global, true)?;
+            // }
+            // if let Ok(p) = git2::Config::find_system() {
+            //     config.add_file(&p, ConfigLevel::System, true)?;
+            // }
             for entry in &config.entries(None).unwrap() {
                 let entry = entry.unwrap();
                 println!("{} => {}", entry.name().unwrap(), entry.value().unwrap());
