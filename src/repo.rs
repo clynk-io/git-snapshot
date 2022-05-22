@@ -1,8 +1,8 @@
 use crate::config::{Config, Remote};
 use crate::error::Error;
 use git2::{
-    Cred, CredentialHelper, Index, IndexAddOption, PushOptions, RemoteCallbacks, Repository,
-    Signature,
+    ConfigLevel, Cred, CredentialHelper, Index, IndexAddOption, PushOptions, RemoteCallbacks,
+    Repository, Signature,
 };
 use std::path::Path;
 
@@ -55,7 +55,10 @@ impl Repo {
             let mut remote = self.git_repo.find_remote(&remote.name)?;
 
             let mut callbacks = RemoteCallbacks::new();
-            let config = self.git_repo.config()?;
+            let mut config = self.git_repo.config()?;
+            config.add_file(&git2::Config::find_global()?, ConfigLevel::Global, false)?;
+            config.add_file(&git2::Config::find_system()?, ConfigLevel::System, false)?;
+
             callbacks.credentials(move |url, username, allowed_types| {
                 Cred::credential_helper(&config, url, username)
             });
