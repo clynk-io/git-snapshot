@@ -30,14 +30,23 @@ impl Repo {
         let tree = index.write_tree()?;
         let tree = self.git_repo.find_tree(tree)?;
 
+        let snapshot_reference = self.git_repo.find_reference(&snapshot_ref).ok();
+
+        let diff = self.git_repo.diff_tree_to_tree(
+            snapshot_reference
+                .as_ref()
+                .and_then(|r| r.peel_to_tree().ok())
+                .as_ref(),
+            Some(&tree),
+            None,
+        )?;
+        if diff.deltas().next().is_none() {
+            return Ok(());
+        }
+
         let signature = Signature::now("asdf", "asdf@asdg.com")?;
 
-        let parent = self
-            .git_repo
-            .find_reference(&snapshot_ref)
-            .and_then(|r| r.peel_to_commit())
-            .ok();
-
+        let parent = snapshot_reference.and_then(|r| r.peel_to_commit().ok());
         self.git_repo.commit(
             Some(&snapshot_ref),
             &signature,
