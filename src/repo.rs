@@ -64,6 +64,7 @@ impl Repo {
             }
 
             callbacks.credentials(move |url, username, allowed_types| {
+                println!("{:?}", allowed_types);
                 Cred::credential_helper(&config, url, username)
             });
             let mut opts = PushOptions::new();
