@@ -74,6 +74,7 @@ impl Repo {
         });
 
         for remote in remote_entries {
+            println!("Pushing to remote: {}", remote);
             let mut remote = self.git_repo.find_remote(&remote)?;
             let config = config.clone();
             let mut callbacks = RemoteCallbacks::new();
