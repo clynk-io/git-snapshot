@@ -80,7 +80,7 @@ impl Repo {
             return Ok(());
         }
 
-        let signature = Signature::now("asdf", "asdf@asdf.com")?;
+        let signature = self.git_repo.signature()?;
 
         let parent = snapshot_ref.and_then(|r| r.peel_to_commit().ok());
         self.git_repo.commit(
