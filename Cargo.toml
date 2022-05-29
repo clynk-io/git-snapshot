@@ -1,0 +1,11 @@
+[package]
+edition = "2021"
+name = "git-snapshot"
+version = "0.1.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+git2 = "0.14"
+shellexpand = "2.1"
+thiserror = "1.0"
