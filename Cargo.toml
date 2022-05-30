@@ -6,5 +6,7 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-git-repository = "0.16"
+git2 = "0.14"
+log = "0.4"
+shellexpand = "2.1"
 thiserror = "1.0"
