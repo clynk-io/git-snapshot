@@ -1,90 +1,35 @@
 use crate::error::Error;
-use git2::{Config, Cred, Index, IndexAddOption, PushOptions, RemoteCallbacks, Repository};
+use crate::util::{branch_ref_shorthand, expand, ConfigValue, BRANCH_REF_PREFIX};
+use git2::{
+    Config, Cred, ErrorCode, Index, IndexAddOption, PushOptions, RemoteCallbacks, Repository,
+};
 use log::{debug, info};
-use shellexpand::env_with_context_no_errors;
-
 use std::path::Path;
-
 
 const BRANCH_SUB_KEY: &'static str = "BRANCH";
 const DEFAULT_SNAPSHOT_BRANCH: &'static str = "snapshot/${BRANCH}";
 const DEFAULT_SNAPSHOT_COMMIT_MESSAGE: &'static str = "Snapshot";
-const BRANCH_REF_PREFIX: &'static str = "refs/heads/";
 
 pub struct Repo {
     git_repo: Repository,
 }
 
-// trait to easily find the first populated key in git config
-trait ConfigValue {
-    fn from_config(config: &Config, keys: &[&str], default_value: Self) -> Self
-    where
-        Self: Sized;
-}
-
-impl ConfigValue for String {
-    fn from_config(config: &Config, keys: &[&str], default_value: Self) -> Self
-    where
-        Self: Sized,
-    {
-        for &key in keys {
-            if let Ok(value) = config.get_string(key) {
-                return value;
-            }
-        }
-        default_value
-    }
-}
-
-impl ConfigValue for bool {
-    fn from_config(config: &Config, keys: &[&str], default_value: Self) -> Self
-    where
-        Self: Sized,
-    {
-        for &key in keys {
-            if let Ok(value) = config.get_bool(key) {
-                return value;
-            }
-        }
-        default_value
-    }
-}
-
-fn expand(input: &str, context: &[(&str, &str)]) -> String {
-    env_with_context_no_errors(input, |var| {
-        for &(key, val) in context {
-            if var == key {
-                return Some(val.to_owned());
-            }
-        }
-        None
-    })
-    .to_string()
-}
-
+// TODO: add config setter helper functions
 impl Repo {
-    pub fn new(path: impl AsRef<Path>) -> Result<Self, Error> {
-        let git_repo = Repository::discover(path)?;
-        Ok(Self { git_repo })
+    pub fn new(repo: Repository) -> Self {
+        Repo { git_repo: repo }
     }
 
-    pub fn snapshot(&self) -> Result<(), Error> {
-        let current_branch = self.current_branch()?;
+    pub fn from_path(path: impl AsRef<Path>) -> Result<Self, Error> {
+        let git_repo = Repository::discover(path)?;
+        Ok(Self::new(git_repo))
+    }
 
-        let config = self.git_repo.config()?;
+    pub fn git_repo(&self) -> &Repository {
+        &self.git_repo
+    }
 
-        // Check if snapshotting is enabled for the current branch
-        let enabled = config
-            .get_bool(&format!("branch.{}.snapshotenabled", current_branch))
-            .unwrap_or(true);
-
-        if !enabled {
-            info!("Skipping snapshot for branch: {}", current_branch);
-            return Ok(());
-        }
-
-        info!("Snapshotting branch: {}", current_branch);
-
+    fn snapshot_branch(config: &Config, current_branch: &str) -> String {
         let snapshot_branch = String::from_config(
             &config,
             &[
@@ -93,10 +38,32 @@ impl Repo {
             ],
             DEFAULT_SNAPSHOT_BRANCH.to_owned(),
         );
+        expand(&snapshot_branch, &[(BRANCH_SUB_KEY, &current_branch)])
+    }
 
-        let snapshot_branch = expand(&snapshot_branch, &[(BRANCH_SUB_KEY, &current_branch)]);
+    pub fn snapshot(&self) -> Result<(), Error> {
+        let current_branch = self.current_branch()?;
+
+        let config = self.git_repo.config()?;
+
+        // Check if snapshotting is enabled for the current branch
+        let enabled = bool::from_config(
+            &config,
+            &[&format!("branch.{}.snapshotenabled", current_branch)],
+            true,
+        );
+
+        if !enabled {
+            info!("Skipping snapshot for branch: {}", current_branch);
+            return Ok(());
+        }
+
+        info!("Snapshotting branch: {}", current_branch);
+
+        let snapshot_branch = Self::snapshot_branch(&config, &current_branch);
 
         debug!("Snapshot branch: {}", snapshot_branch);
+
         // create full branch ref name, e.g. refs/heads/snapshot/main
         let snapshot_ref_name = [BRANCH_REF_PREFIX, &snapshot_branch].concat();
 
@@ -104,9 +71,7 @@ impl Repo {
         let mut index = Index::new()?;
         self.git_repo.set_index(&mut index)?;
         index.add_all(&["*"], IndexAddOption::DEFAULT, None)?;
-        if index.is_empty() {
-            return Ok(());
-        }
+
         let tree = index.write_tree()?;
         let tree = self.git_repo.find_tree(tree)?;
 
@@ -127,14 +92,24 @@ impl Repo {
             return Ok(());
         }
 
+        // Default signature from config
         let signature = self.git_repo.signature()?;
 
         let parent = snapshot_ref.and_then(|r| r.peel_to_commit().ok());
+
+        let message = String::from_config(
+            &config,
+            &[
+                &format!("branch.{}.snapshotmessage", current_branch),
+                "snapshot.snapshotmessage",
+            ],
+            DEFAULT_SNAPSHOT_COMMIT_MESSAGE.to_owned(),
+        );
         self.git_repo.commit(
             Some(&snapshot_ref_name),
             &signature,
             &signature,
-            "snapshot",
+            &message,
             &tree,
             parent
                 .as_ref()
@@ -147,12 +122,12 @@ impl Repo {
     }
 
     fn push(&self, ref_name: &str, current_branch: &str, config: &Config) -> Result<(), Error> {
-        //let config = Arc::new(config);
-
         let remotes = self.git_repo.remotes()?;
 
         for remote in &remotes {
             let remote = remote.unwrap();
+
+            // Check remote config if snapshots are enabled, disabled by default
             let enabled = bool::from_config(
                 &config,
                 &[&format!("remote.{}.snapshotenabled", remote)],
@@ -166,10 +141,11 @@ impl Repo {
 
             info!("Pushing snapshot to remote: {}", remote);
 
+            // Get remote snapshot branch from remote config or default to the local snapshot branch
             let snapshot_branch = String::from_config(
                 &config,
                 &[&format!("remote.{}.snapshotbranch", remote)],
-                ref_name.trim_start_matches(BRANCH_REF_PREFIX).to_owned(),
+                branch_ref_shorthand(ref_name).to_owned(),
             );
 
             let snapshot_ref_name = [BRANCH_REF_PREFIX, &snapshot_branch].concat();
@@ -183,6 +159,8 @@ impl Repo {
 
             let mut callbacks = RemoteCallbacks::new();
 
+            // Only allow non-interactive credentials
+            // TODO: Look into using default ssh key
             callbacks.credentials(move |url, username, allowed_types| {
                 if allowed_types.is_user_pass_plaintext() {
                     if let Ok(cred) = Cred::credential_helper(&config, url, username) {
@@ -207,17 +185,358 @@ impl Repo {
             opts.remote_callbacks(callbacks);
             remote.push(&[[ref_name, &snapshot_ref_name].join(":")], Some(&mut opts))?;
         }
-
         Ok(())
     }
 
     fn current_branch(&self) -> Result<String, Error> {
-        let reference = self.git_repo.head()?;
-
-        // Return an error if head doesn't point to a branch
-        if !reference.is_branch() {
-            return Err(Error::InvalidHead);
+        match self.git_repo.head() {
+            Ok(reference) => {
+                if !reference.is_branch() || reference.is_remote() {
+                    return Err(Error::InvalidHead);
+                }
+                reference
+                    .shorthand()
+                    .map(|r| r.to_owned())
+                    .ok_or(Error::InvalidHead)
+            }
+            Err(err) => {
+                if err.code() == ErrorCode::UnbornBranch {
+                    let reference = self.git_repo.find_reference("HEAD")?;
+                    let target = reference.symbolic_target().ok_or(Error::InvalidHead)?;
+                    return Ok(branch_ref_shorthand(target).to_owned());
+                }
+                Err(Error::InvalidHead)
+            }
         }
-        Ok(reference.shorthand().unwrap().to_owned())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use git2::Signature;
+    use tempfile::{tempdir, tempfile_in, NamedTempFile, TempPath};
+
+    use super::*;
+
+    use crate::util::tests::*;
+
+    const TEST_REMOTE_NAME: &'static str = "test";
+
+    fn test_repo_with_files(path: &Path) -> (Repository, Config) {
+        let (repo, config) = test_repo(path);
+        NamedTempFile::new_in(path).unwrap().keep().unwrap();
+        (repo, config)
+    }
+
+    fn test_repo_with_remote(path: &Path, remote_path: &Path) -> (Repository, Repository, Config) {
+        let (repo, config) = test_repo_with_files(path);
+        let remote_repo = Repository::init_bare(remote_path).unwrap();
+        repo.remote(
+            TEST_REMOTE_NAME,
+            &format!("file://{}", remote_repo.path().to_str().unwrap()),
+        )
+        .unwrap();
+        repo.config()
+            .unwrap()
+            .set_bool(&format!("remote.{}.snapshotenabled", "test"), true)
+            .unwrap();
+        (repo, remote_repo, config)
+    }
+
+    fn commit_all(repo: &Repository) {
+        let mut index = Index::new().unwrap();
+        repo.set_index(&mut index).unwrap();
+        index
+            .add_all(&["*"], IndexAddOption::DEFAULT, None)
+            .unwrap();
+        let tree = index.write_tree().unwrap();
+        let tree = repo.find_tree(tree).unwrap();
+
+        let signature = Signature::now("test", "test").unwrap();
+
+        repo.commit(Some("HEAD"), &signature, &signature, "", &tree, &[])
+            .unwrap();
+    }
+
+    #[test]
+    fn snapshot() {
+        let temp_dir = tempdir().unwrap();
+        let (repo, config) = test_repo_with_files(temp_dir.path());
+
+        commit_all(&repo);
+
+        NamedTempFile::new_in(temp_dir.path())
+            .unwrap()
+            .keep()
+            .unwrap();
+
+        let repo = Repo::new(repo);
+        repo.snapshot().unwrap();
+    }
+
+    #[test]
+    fn test_snapshot_empty_branch() {
+        let temp_dir = tempdir().unwrap();
+        let (repo, config) = test_repo_with_files(temp_dir.path());
+
+        let repo = Repo::new(repo);
+        repo.snapshot().unwrap();
+
+        let current_branch = repo.current_branch().unwrap();
+        let snapshot_branch = Repo::snapshot_branch(&config, &current_branch);
+
+        assert_eq!(
+            None,
+            repo.git_repo
+                .resolve_reference_from_short_name(&snapshot_branch)
+                .err()
+        );
+    }
+
+    #[test]
+    fn snapshot_no_changes() {
+        let temp_dir = tempdir().unwrap();
+        let (repo, config) = test_repo_with_files(temp_dir.path());
+
+        commit_all(&repo);
+
+        NamedTempFile::new_in(temp_dir.path())
+            .unwrap()
+            .keep()
+            .unwrap();
+
+        let repo = Repo::new(repo);
+        repo.snapshot().unwrap();
+
+        let current_branch = repo.current_branch().unwrap();
+        let snapshot_branch = Repo::snapshot_branch(&config, &current_branch);
+        let snapshot_ref = repo
+            .git_repo
+            .resolve_reference_from_short_name(&snapshot_branch)
+            .unwrap();
+
+        let first_commit = snapshot_ref.peel_to_commit().unwrap();
+
+        repo.snapshot().unwrap();
+
+        let second_commit = snapshot_ref.peel_to_commit().unwrap();
+
+        assert_eq!(first_commit.id(), second_commit.id());
+    }
+
+    #[test]
+    fn snapshot_branch_config_disabled() {
+        let temp_dir = tempdir().unwrap();
+        let (repo, config) = test_repo_with_files(temp_dir.path());
+
+        let repo = Repo::new(repo);
+
+        let current_branch = repo.current_branch().unwrap();
+        let snapshot_branch = Repo::snapshot_branch(&config, &current_branch);
+        repo.git_repo()
+            .config()
+            .unwrap()
+            .set_bool(&format!("branch.{}.snapshotenabled", current_branch), false)
+            .unwrap();
+
+        repo.snapshot().unwrap();
+
+        let ref_result = repo
+            .git_repo
+            .resolve_reference_from_short_name(&snapshot_branch);
+
+        assert_eq!(ErrorCode::NotFound, ref_result.err().unwrap().code());
+    }
+
+    #[test]
+    fn snapshot_branch_config_snapshotbranch() {
+        let temp_dir = tempdir().unwrap();
+        let (repo, _config) = test_repo_with_files(temp_dir.path());
+
+        let repo = Repo::new(repo);
+
+        let current_branch = repo.current_branch().unwrap();
+        let snapshot_branch = "snapshottest";
+
+        repo.git_repo()
+            .config()
+            .unwrap()
+            .set_str(
+                &format!("branch.{}.snapshotbranch", current_branch),
+                snapshot_branch,
+            )
+            .unwrap();
+
+        repo.snapshot().unwrap();
+
+        assert_eq!(
+            None,
+            repo.git_repo
+                .resolve_reference_from_short_name(&snapshot_branch)
+                .err()
+        );
+    }
+
+    #[test]
+    fn snapshot_snapshot_config_snapshotbranch() {
+        let temp_dir = tempdir().unwrap();
+        let (repo, _config) = test_repo_with_files(temp_dir.path());
+
+        let repo = Repo::new(repo);
+
+        let snapshot_branch = "snapshottest";
+
+        repo.git_repo()
+            .config()
+            .unwrap()
+            .set_str("snapshot.snapshotbranch", snapshot_branch)
+            .unwrap();
+
+        repo.snapshot().unwrap();
+
+        assert_eq!(
+            None,
+            repo.git_repo
+                .resolve_reference_from_short_name(&snapshot_branch)
+                .err()
+        );
+    }
+
+    #[test]
+    fn snapshot_snapshot_config_env_expansion() {
+        let temp_dir = tempdir().unwrap();
+        let (repo, _config) = test_repo_with_files(temp_dir.path());
+
+        let repo = Repo::new(repo);
+        std::env::set_var("TEST_NAME", "test");
+
+        let snapshot_branch = "snapshottest/${TEST_NAME}";
+
+        repo.git_repo()
+            .config()
+            .unwrap()
+            .set_str("snapshot.snapshotbranch", snapshot_branch)
+            .unwrap();
+
+        repo.snapshot().unwrap();
+
+        assert_eq!(
+            None,
+            repo.git_repo
+                .resolve_reference_from_short_name("snapshottest/test")
+                .err()
+        );
+    }
+
+    #[test]
+    fn snapshot_remote_push() {
+        let temp_dir = tempdir().unwrap();
+        let remote_dir = tempdir().unwrap();
+
+        let (repo, remote_repo, config) = test_repo_with_remote(temp_dir.path(), remote_dir.path());
+
+        let repo = Repo::new(repo);
+        repo.snapshot().unwrap();
+
+        let current_branch = repo.current_branch().unwrap();
+        let snapshot_branch = Repo::snapshot_branch(&config, &current_branch);
+
+        assert_eq!(
+            None,
+            remote_repo
+                .resolve_reference_from_short_name(&snapshot_branch)
+                .err()
+        );
+    }
+
+    #[test]
+    fn snapshot_remote_config_snapshotdisabled() {
+        let temp_dir = tempdir().unwrap();
+        let remote_dir = tempdir().unwrap();
+
+        let (repo, remote_repo, mut config) =
+            test_repo_with_remote(temp_dir.path(), remote_dir.path());
+
+        config
+            .set_bool(
+                &format!("remote.{}.snapshotenabled", TEST_REMOTE_NAME),
+                false,
+            )
+            .unwrap();
+
+        let repo = Repo::new(repo);
+        repo.snapshot().unwrap();
+
+        let current_branch = repo.current_branch().unwrap();
+        let snapshot_branch = Repo::snapshot_branch(&config, &current_branch);
+
+        assert_eq!(
+            ErrorCode::NotFound,
+            remote_repo
+                .resolve_reference_from_short_name(&snapshot_branch)
+                .err()
+                .unwrap()
+                .code()
+        );
+    }
+
+    #[test]
+    fn snapshot_remote_config_snapshotbranch() {
+        let temp_dir = tempdir().unwrap();
+        let remote_dir = tempdir().unwrap();
+
+        let (repo, remote_repo, mut config) =
+            test_repo_with_remote(temp_dir.path(), remote_dir.path());
+
+        let remote_branch = "snapshotremote/test";
+
+        config
+            .set_str(
+                &format!("remote.{}.snapshotbranch", TEST_REMOTE_NAME),
+                remote_branch,
+            )
+            .unwrap();
+
+        let repo = Repo::new(repo);
+        repo.snapshot().unwrap();
+
+        assert_eq!(
+            None,
+            remote_repo
+                .resolve_reference_from_short_name(remote_branch)
+                .err()
+        );
+    }
+
+    #[test]
+    fn snapshot_invalid_head() {
+        let temp_dir = tempdir().unwrap();
+
+        let (repo, _config) = test_repo_with_files(temp_dir.path());
+
+        commit_all(&repo);
+
+        repo.set_head_detached(repo.head().unwrap().peel_to_commit().unwrap().id())
+            .unwrap();
+
+        let repo = Repo::new(repo);
+
+        assert_eq!(Error::InvalidHead, repo.snapshot().err().unwrap());
+    }
+
+    #[test]
+    fn repo_from_path() {
+        let temp_dir = tempdir().unwrap();
+
+        let (repo, _config) = test_repo(temp_dir.path());
+
+        commit_all(&repo);
+
+        repo.set_head_detached(repo.head().unwrap().peel_to_commit().unwrap().id())
+            .unwrap();
+
+        assert_eq!(None, Repo::from_path(temp_dir.path()).err());
     }
 }

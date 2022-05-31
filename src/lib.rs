@@ -1,7 +1,6 @@
-mod config;
 mod error;
 mod repo;
-pub use config::*;
+mod util;
 pub use error::*;
 pub use repo::*;
 #[cfg(test)]
