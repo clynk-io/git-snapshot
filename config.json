@@ -1,4 +1,8 @@
 {
   "repos": [],
-  "mode": "event"
+  "mode": {
+    "poll": {
+      "period": "600.000000000"
+    }
+  }
 }

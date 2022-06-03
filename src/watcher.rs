@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use time::Duration;
 
 #[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", tag = "mode", content = "modeConfig")]
 pub enum WatchMode {
     Poll { period: Duration },
     Event,
@@ -26,7 +26,7 @@ pub struct RepoConfig {
 pub struct WatchConfig {
     #[serde(default)]
     pub repos: Vec<RepoConfig>,
-    #[serde(default)]
+    #[serde(default, flatten)]
     pub mode: WatchMode,
 }
 
