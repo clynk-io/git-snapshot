@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use time::Duration;
 
 #[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum WatchMode {
     Poll { period: Duration },
     Event,
