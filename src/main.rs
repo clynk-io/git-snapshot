@@ -20,9 +20,7 @@ fn main() {
     to_writer_pretty(
         f,
         &WatchConfig {
-            mode: WatchMode::Poll {
-                period: Duration::MINUTE * 10,
-            },
+            mode: WatchMode::Event,
             repos: vec![],
         },
     )

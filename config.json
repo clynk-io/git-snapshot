@@ -1,8 +1,7 @@
 {
   "repos": [],
-  "mode": {
-    "poll": {
-      "period": "600.000000000"
-    }
+  "mode": "poll",
+  "modeConfig": {
+    "period": "600.000000000"
   }
 }
