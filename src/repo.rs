@@ -523,7 +523,7 @@ mod tests {
 
         let repo = Repo::new(repo);
 
-        assert_eq!(Error::InvalidHead, repo.snapshot().err().unwrap());
+        assert!(matches!(repo.snapshot().err().unwrap(), Error::InvalidHead));
     }
 
     #[test]
@@ -537,6 +537,6 @@ mod tests {
         repo.set_head_detached(repo.head().unwrap().peel_to_commit().unwrap().id())
             .unwrap();
 
-        assert_eq!(None, Repo::from_path(temp_dir.path()).err());
+        assert!(Repo::from_path(temp_dir.path()).is_ok());
     }
 }
