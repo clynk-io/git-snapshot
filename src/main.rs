@@ -9,6 +9,10 @@ fn main() {
     let cwd = current_dir().unwrap();
     let repo = Repo::from_path(cwd).unwrap();
     repo.snapshot().unwrap();
-    let f = OpenOptions::new().create(true).open("config.json").unwrap();
+    let f = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .open("config.json")
+        .unwrap();
     to_writer_pretty(f, &WatchConfig::default()).unwrap();
 }
