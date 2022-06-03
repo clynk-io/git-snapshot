@@ -1,9 +1,10 @@
-use git_snapshot::watcher::WatchConfig;
+use git_snapshot::watcher::{WatchConfig, WatchMode};
 use git_snapshot::Repo;
 use serde_json::to_writer_pretty;
 use std::env::current_dir;
 use std::fs::OpenOptions;
 use structopt::StructOpt;
+use time::Duration;
 
 fn main() {
     let cwd = current_dir().unwrap();
@@ -15,5 +16,15 @@ fn main() {
         .truncate(true)
         .open("config.json")
         .unwrap();
-    to_writer_pretty(f, &WatchConfig::default()).unwrap();
+
+    to_writer_pretty(
+        f,
+        &WatchConfig {
+            mode: WatchMode::Poll {
+                period: Duration::MINUTE * 10,
+            },
+            repos: vec![],
+        },
+    )
+    .unwrap();
 }
