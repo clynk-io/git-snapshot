@@ -12,6 +12,7 @@ fn main() {
     let f = OpenOptions::new()
         .create(true)
         .write(true)
+        .truncate(true)
         .open("config.json")
         .unwrap();
     to_writer_pretty(f, &WatchConfig::default()).unwrap();
