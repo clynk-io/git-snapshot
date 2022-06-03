@@ -16,11 +16,13 @@ impl Default for WatchMode {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RepoConfig {
     path: PathBuf,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WatchConfig {
     #[serde(default)]
     repos: Vec<RepoConfig>,
