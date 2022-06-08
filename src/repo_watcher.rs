@@ -93,7 +93,7 @@ impl RepoWatcher {
                     debounce_timestamps
                         .write()
                         .unwrap()
-                        .insert(handler_path, Instant::now())
+                        .insert(handler_path, Instant::now());
                 }
                 if let Ok(repo) = Repo::from_path(&path) {
                     if !repo.is_ignored(rel).unwrap_or(false) {
