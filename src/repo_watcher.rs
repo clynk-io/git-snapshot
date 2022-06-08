@@ -43,7 +43,7 @@ impl RepoWatcher {
         let watcher_clone = watcher.clone();
         watcher.lock().unwrap().watch_path(
             config_path,
-            Box::new(move |path: PathBuf| {
+            Box::new(move |path: PathBuf, handler_path: PathBuf| {
                 let config = Self::open_config(&path);
                 if let Ok(config) = config {
                     let w = Self::watcher(config).unwrap();
@@ -59,7 +59,10 @@ impl RepoWatcher {
         let mut watcher = Watcher::new(&config.mode, Duration::from_millis(500))?;
 
         for RepoConfig { path } in &config.repos {
-            let handler = move |path: PathBuf| {
+            let handler = move |path: PathBuf, handler_path: PathBuf| {
+                if path.strip_prefix(handler_path).unwrap().starts_with(".git") {
+                    return;
+                }
                 if let Ok(repo) = Repo::from_path(path) {
                     repo.snapshot();
                     println!("Took snapshot")

@@ -19,12 +19,12 @@ pub enum WatchMode {
 }
 
 pub trait Handler {
-    fn handle(&mut self, path: PathBuf);
+    fn handle(&mut self, path: PathBuf, handler_path: PathBuf);
 }
 
-impl<F: FnMut(PathBuf) -> ()> Handler for F {
-    fn handle(&mut self, path: PathBuf) {
-        (self)(path);
+impl<F: FnMut(PathBuf, PathBuf) -> ()> Handler for F {
+    fn handle(&mut self, path: PathBuf, handler_path: PathBuf) {
+        (self)(path, handler_path);
     }
 }
 type BoxedNotifyWatcher = Box<dyn NotifyWatcher + Send + Sync>;
@@ -72,7 +72,7 @@ impl Watcher {
                 for (p, handler) in &mut *paths {
                     for event_path in &event.paths {
                         if event_path.starts_with(p.as_path()) {
-                            handler.handle(event_path.clone())
+                            handler.handle(event_path.clone(), p.clone())
                         }
                     }
                 }
