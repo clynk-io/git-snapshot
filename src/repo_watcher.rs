@@ -61,11 +61,6 @@ impl RepoWatcher {
         for RepoConfig { path } in &config.repos {
             let handler = move |path: PathBuf, handler_path: PathBuf| {
                 let rel = path.strip_prefix(handler_path).unwrap();
-                println!(
-                    "Rel: {}, {}",
-                    rel.to_str().unwrap(),
-                    rel.starts_with(".git")
-                );
                 if rel.starts_with(".git") {
                     return;
                 }
