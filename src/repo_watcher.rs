@@ -30,8 +30,11 @@ pub struct RepoWatcher{
 
 impl RepoWatcher {
     pub fn new(config: WatchConfig) -> Result<Self, Error> {
+        let debounce_timestamps = match  config.mode {
+           
+        }
         Ok(Self{
-            watcher: Arc::new(Mutex::new(Self::watcher(config)?))
+            watcher: Arc::new(Mutex::new(Self::watcher(config)?)),
         })
     }
 
