@@ -91,6 +91,7 @@ impl RepoWatcher {
                             return;
                         }
                     }
+
                     debounce_timestamps
                         .write()
                         .unwrap()
