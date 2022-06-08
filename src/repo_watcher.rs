@@ -30,7 +30,9 @@ pub struct RepoWatcher{
 
 impl RepoWatcher {
     pub fn new(config: WatchConfig) -> Result<Self, Error> {
-        Ok(Self(Arc::new(Mutex::new(Self::watcher(config)?))))
+        Ok(Self{
+            watcher: Arc::new(Mutex::new(Self::watcher(config)?))
+        })
     }
 
     fn open_config(config_path: &Path) -> Result<WatchConfig, Error> {
