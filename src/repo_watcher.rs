@@ -4,7 +4,7 @@ use std::{
     fs::{canonicalize, OpenOptions},
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use crate::{
@@ -24,7 +24,8 @@ pub struct RepoConfig {
     pub path: PathBuf,
 }
 pub struct RepoWatcher{
-    watcher:  Arc<Mutex<Watcher>>
+    watcher:  Arc<Mutex<Watcher>>,
+    debounce_timestaps: HashMap<PathBuf, Instant> 
 };
 
 impl RepoWatcher {
