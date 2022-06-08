@@ -68,7 +68,7 @@ impl RepoWatcher {
             }),
         )?;
 
-        Ok(Self(watcher);
+        Ok(Self(watcher)
     }
 
     pub fn watcher(
