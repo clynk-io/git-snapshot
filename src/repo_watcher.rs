@@ -68,10 +68,7 @@ impl RepoWatcher {
             }),
         )?;
 
-        Ok(Self(Arc::new(Mutex::new(Self::watcher(
-            config,
-            debounce_timestamps,
-        )?))))
+        Ok(Self(watcher)
     }
 
     pub fn watcher(
