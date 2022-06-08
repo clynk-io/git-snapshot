@@ -46,6 +46,12 @@ impl RepoWatcher {
     pub fn with_config(config_path: impl AsRef<Path>) -> Result<Self, Error> {
         let config_path = config_path.as_ref();
         let config = Self::open_config(config_path)?;
+
+        let debounce_timestamps = match &config.mode {
+            &WatchMode::Event => Some(Arc::new(RwLock::new(HashMap::new()))),
+            &WatchMode::Poll => None
+         };
+         
         let watcher = Self::watcher(config)?;
         let watcher = Arc::new(Mutex::new(watcher));
         let watcher_clone = watcher.clone();
@@ -60,10 +66,7 @@ impl RepoWatcher {
                 }
             }),
         )?;
-        let debounce_timestamps = match &config.mode {
-            &WatchMode::Event => Some(Arc::new(RwLock::new(HashMap::new()))),
-            &WatchMode::Poll => None
-         };
+    
          Ok(Self(
              Arc::new(Mutex::new(Self::watcher(config, debounce_timestamps)?)),
          ))    
