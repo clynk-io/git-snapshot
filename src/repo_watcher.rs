@@ -4,7 +4,7 @@ use std::{
     collections::HashMap,
     fs::{canonicalize, OpenOptions},
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, Mutex},
+    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 
@@ -90,7 +90,7 @@ impl RepoWatcher {
                         .unwrap()
                         .insert(handler_path.clone(), Instant::now())
                     {
-                        if instant > &(Instant::now() - period.clone()) {
+                        if instant + period > &(Instant::now() - period.clone()) {
                             return;
                         }
                     }
