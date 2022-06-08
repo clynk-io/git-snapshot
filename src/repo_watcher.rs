@@ -77,20 +77,15 @@ impl RepoWatcher {
         debounce_timestamps: Option<Arc<RwLock<HashMap<PathBuf, Instant>>>>,
     ) -> Result<Watcher, Error> {
         let mut watcher = Watcher::new(&config.mode, Duration::from_millis(500))?;
-        let period = config.period.clone();
+        let period = config.period.clone;
         for RepoConfig { path } in &config.repos {
             let handler = move |path: PathBuf, handler_path: PathBuf| {
                 let rel = path.strip_prefix(handler_path).unwrap();
                 if rel.starts_with(".git") {
                     return;
                 }
-                if let Some(debounce_timestamps) = debounce_timestamps {
-                    if let Some(instant) = debounce_timestamps
-                        .clone()
-                        .read()
-                        .unwrap()
-                        .get(&handler_path)
-                    {
+                if let Some(debounce_timestamps) = debounce_timestamps.clone() {
+                    if let Some(instant) = debounce_timestamps.read().unwrap().get(&handler_path) {
                         if instant < &(Instant::now() + period.clone()) {
                             return;
                         }
