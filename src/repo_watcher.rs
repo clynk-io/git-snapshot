@@ -65,10 +65,12 @@ impl RepoWatcher {
                     return;
                 }
                 if let Ok(repo) = Repo::from_path(&path) {
-                    if repo.is_ignored(path)
-                    print!("Event: {}", rel.to_str().unwrap());
-                    repo.snapshot();
-                    println!("Took snapshot")
+                    if repo.is_ignored(path).unwrap_or(true) {
+                        print!("Event: {}", rel.to_str().unwrap());
+                        repo.snapshot();
+                        println!("Took snapshot"
+                    }
+    
                 }
             };
             watcher.watch_path(canonicalize(path)?, Box::new(handler))?;
