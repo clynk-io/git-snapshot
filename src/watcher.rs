@@ -65,6 +65,9 @@ impl Watcher {
         let paths_clone = paths.clone();
         let handler = move |event: Result<Event, notify::Error>| -> () {
             if let Ok(event) = event {
+                if !event.kind.is_create() && !event.kind.is_modify() && !event.kind.is_remove() {
+                    return;
+                }
                 let mut paths = paths_clone.lock().unwrap();
                 for (p, handler) in &mut *paths {
                     for event_path in &event.paths {
