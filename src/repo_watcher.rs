@@ -81,7 +81,9 @@ impl RepoWatcher {
                 if rel.starts_with(".git") {
                     return;
                 }
-                if 
+                if let Some(debounce_timestamps) = debounce_timestamps {
+                    if let Some(instance) = debounce_timestamps.read().unwrap().get(&handler_path)
+                }
                 if let Ok(repo) = Repo::from_path(&path) {
                     if !repo.is_ignored(rel).unwrap_or(false) {
                         repo.snapshot();
