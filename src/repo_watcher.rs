@@ -102,7 +102,9 @@ impl RepoWatcher {
                     return;
                 }
 
-                if debounce(debounce_timestamps, handler_path.clone())
+                if debounce(debounce_timestamps, &handler_path) {
+                    return;
+                }
                 if let Ok(repo) = Repo::from_path(&path) {
                     if !repo.is_ignored(rel).unwrap_or(false) {
                         repo.snapshot();
