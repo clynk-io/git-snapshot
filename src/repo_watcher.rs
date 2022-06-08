@@ -71,6 +71,22 @@ impl RepoWatcher {
         Ok(Self(watcher))
     }
 
+    fn debounce(
+        debounce_timestamps: Option<Arc<Mutex<HashMap<PathBuf, Instant>>>>,
+        handler_path: PathBuf,
+    ) -> bool {
+        if let Some(debounce_timestamps) = debounce_timestamps.clone() {
+            if let Some(instant) = debounce_timestamps
+                .lock()
+                .unwrap()
+                .insert(handler_path.clone(), Instant::now())
+            {
+                if instant + period > Instant::now() {
+                    return;
+                }
+            }
+        }
+    }
     pub fn watcher(
         config: WatchConfig,
         debounce_timestamps: Option<Arc<Mutex<HashMap<PathBuf, Instant>>>>,
@@ -84,17 +100,7 @@ impl RepoWatcher {
                 if rel.starts_with(".git") {
                     return;
                 }
-                if let Some(debounce_timestamps) = debounce_timestamps.clone() {
-                    if let Some(instant) = debounce_timestamps
-                        .lock()
-                        .unwrap()
-                        .insert(handler_path.clone(), Instant::now())
-                    {
-                        if instant + period > Instant::now() {
-                            return;
-                        }
-                    }
-                }
+
                 if let Ok(repo) = Repo::from_path(&path) {
                     if !repo.is_ignored(rel).unwrap_or(false) {
                         repo.snapshot();
