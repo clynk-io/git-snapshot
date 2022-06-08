@@ -210,7 +210,7 @@ impl Repo {
     }
 
     pub fn is_ignored(&self, path: &Path) -> Result<bool, Error> {
-        self.git_repo.add_ignore_rule("/target")?;
+        self.git_repo.add_ignore_rule("target")?;
         Ok(self.git_repo.is_path_ignored(path)?)
     }
 }
