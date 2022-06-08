@@ -58,7 +58,7 @@ impl RepoWatcher {
         watcher.lock().unwrap().watch_path(
             config_path,
             Box::new(move |path: PathBuf, handler_path: PathBuf| {
-                if Self::debounce(debounce_timestamps, &handler_path) {
+                if Self::debounce(debounce_timestamps.clone(), &handler_path) {
                     return;
                 }
                 let config = Self::open_config(&path);
