@@ -83,7 +83,7 @@ impl RepoWatcher {
                 }
                 if let Some(debounce_timestamps) = debounce_timestamps {
                     if let Some(instant) = debounce_timestamps.read().unwrap().get(&handler_path) {
-                        if instance < Instant::now() + &period
+                        if instance < Instant::now() + &period;
                     }
                 }
                 if let Ok(repo) = Repo::from_path(&path) {
