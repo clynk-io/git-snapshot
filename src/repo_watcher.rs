@@ -65,7 +65,7 @@ impl RepoWatcher {
                     return;
                 }
                 if let Ok(repo) = Repo::from_path(&path) {
-                    if !repo.is_ignored(rel).unwrap() {
+                    if !repo.is_ignored(rel).unwrap_or(false) {
                         println!("Event: {}", &Path::new("/").join(rel).to_str().unwrap());
                         repo.snapshot();
                         println!("Took snapshot")
