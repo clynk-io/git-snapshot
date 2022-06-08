@@ -77,7 +77,7 @@ impl RepoWatcher {
         debounce_timestamps: Option<Arc<RwLock<HashMap<PathBuf, Instant>>>>,
     ) -> Result<Watcher, Error> {
         let mut watcher = Watcher::new(&config.mode, Duration::from_millis(500))?;
-        let period = config.period;
+        let period = config.period.clone();
         for RepoConfig { path } in &config.repos {
             let handler = move |path: PathBuf, handler_path: PathBuf| {
                 let rel = path.strip_prefix(handler_path).unwrap();
