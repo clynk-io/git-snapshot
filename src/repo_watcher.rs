@@ -90,7 +90,7 @@ impl RepoWatcher {
                         .unwrap()
                         .insert(handler_path.clone(), Instant::now())
                     {
-                        if instant + period > &(Instant::now() - period.clone()) {
+                        if instant + period > Instant::now() {
                             return;
                         }
                     }
