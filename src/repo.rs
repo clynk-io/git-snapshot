@@ -210,7 +210,7 @@ impl Repo {
     }
 
     fn is_ignored(&self, path: &Path) -> Result<bool, Error> {
-        self.git_repo.is_path_ignored(path)?;
+        Okself.git_repo.is_path_ignored(path)?)
     }
 }
 
