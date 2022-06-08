@@ -1,10 +1,11 @@
 use serde::{Deserialize, Serialize};
 use serde_json::from_reader;
 use std::{
+    collections::HashMap,
     fs::{canonicalize, OpenOptions},
     path::{Path, PathBuf},
     sync::{Arc, Mutex, RwLock},
-    time::{Duration, Instant}, collections::HashMap,
+    time::{Duration, Instant},
 };
 
 use crate::{
@@ -23,19 +24,18 @@ pub struct WatchConfig {
 pub struct RepoConfig {
     pub path: PathBuf,
 }
-pub struct RepoWatcher(
-     Arc<Mutex<Watcher>>,
-);
+pub struct RepoWatcher(Arc<Mutex<Watcher>>);
 
 impl RepoWatcher {
     pub fn new(config: WatchConfig) -> Result<Self, Error> {
         let debounce_timestamps = match &config.mode {
-           &WatchMode::Event => Some(Arc::new(RwLock::new(HashMap::new()))),
-           &WatchMode::Poll => None
+            &WatchMode::Event => Some(Arc::new(RwLock::new(HashMap::new()))),
+            &WatchMode::Poll => None,
         };
-        Ok(Self(
-            Arc::new(Mutex::new(Self::watcher(config, debounce_timestamps)?)),
-        ))
+        Ok(Self(Arc::new(Mutex::new(Self::watcher(
+            config,
+            debounce_timestamps,
+        )?))))
     }
 
     fn open_config(config_path: &Path) -> Result<WatchConfig, Error> {
@@ -49,9 +49,8 @@ impl RepoWatcher {
 
         let debounce_timestamps = match &config.mode {
             &WatchMode::Event => Some(Arc::new(RwLock::new(HashMap::new()))),
-            &WatchMode::Poll => None
-         };
-
+            &WatchMode::Poll => None,
+        };
 
         let watcher = Self::watcher(config, debounce_timestamps.clone())?;
         let watcher = Arc::new(Mutex::new(watcher));
@@ -66,13 +65,17 @@ impl RepoWatcher {
                 }
             }),
         )?;
-    
-         Ok(Self(
-             Arc::new(Mutex::new(Self::watcher(config, debounce_timestamps)?)),
-         ))    
-        }
 
-    pub fn watcher(config: WatchConfig, debounce_timestamps: Option<Arc<RwLock<HashMap<PathBuf, Instant>>>>) -> Result<Watcher, Error> {
+        Ok(Self(Arc::new(Mutex::new(Self::watcher(
+            config,
+            debounce_timestamps,
+        )?))))
+    }
+
+    pub fn watcher(
+        config: WatchConfig,
+        debounce_timestamps: Option<Arc<RwLock<HashMap<PathBuf, Instant>>>>,
+    ) -> Result<Watcher, Error> {
         let mut watcher = Watcher::new(&config.mode, Duration::from_millis(500))?;
         let period = config.period;
         for RepoConfig { path } in &config.repos {
@@ -83,7 +86,9 @@ impl RepoWatcher {
                 }
                 if let Some(debounce_timestamps) = debounce_timestamps {
                     if let Some(instant) = debounce_timestamps.read().unwrap().get(&handler_path) {
-                        if instance < Instant::now() + &period;
+                        if instance < Instant::now() + &period {
+                            return;
+                        }
                     }
                 }
                 if let Ok(repo) = Repo::from_path(&path) {
