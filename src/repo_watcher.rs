@@ -33,7 +33,7 @@ impl RepoWatcher {
         let debounce_timestamps = match &config.mode {
            &WatchMode::Event => Some(Arc::new(RwLock::new(HashMap::new))),
            &WatchMode::Poll => None
-        }
+        };
         Ok(Self{
             watcher: Arc::new(Mutex::new(Self::watcher(config)?)),
         })
