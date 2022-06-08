@@ -80,7 +80,7 @@ impl RepoWatcher {
         for RepoConfig { path } in &config.repos {
             let debounce_timestamps = debounce_timestamps.clone();
             let handler = move |path: PathBuf, handler_path: PathBuf| {
-                let rel = path.strip_prefix(handler_path).unwrap();
+                let rel = path.strip_prefix(&handler_path).unwrap();
                 if rel.starts_with(".git") {
                     return;
                 }
