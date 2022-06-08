@@ -82,10 +82,11 @@ impl RepoWatcher {
                 .insert(handler_path.clone(), Instant::now())
             {
                 if instant + period > Instant::now() {
-                    return;
+                    return true;
                 }
             }
         }
+        false
     }
     pub fn watcher(
         config: WatchConfig,
@@ -101,6 +102,7 @@ impl RepoWatcher {
                     return;
                 }
 
+                if debounce(debounce_timestamps, handler_path.clone())
                 if let Ok(repo) = Repo::from_path(&path) {
                     if !repo.is_ignored(rel).unwrap_or(false) {
                         repo.snapshot();
