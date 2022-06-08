@@ -23,10 +23,9 @@ pub struct WatchConfig {
 pub struct RepoConfig {
     pub path: PathBuf,
 }
-pub struct RepoWatcher{
-    watcher:  Arc<Mutex<Watcher>>,
-    debounce_timestamps: Option<Arc<RwLock<HashMap<PathBuf, Instant>>>>
-};
+pub struct RepoWatcher(
+     Arc<Mutex<Watcher>>,
+);
 
 impl RepoWatcher {
     pub fn new(config: WatchConfig) -> Result<Self, Error> {
@@ -80,6 +79,7 @@ impl RepoWatcher {
                 if rel.starts_with(".git") {
                     return;
                 }
+                if 
                 if let Ok(repo) = Repo::from_path(&path) {
                     if !repo.is_ignored(rel).unwrap_or(false) {
                         repo.snapshot();
