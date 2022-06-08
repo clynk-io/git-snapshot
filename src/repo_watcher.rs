@@ -84,7 +84,6 @@ impl RepoWatcher {
                 if rel.starts_with(".git") {
                     return;
                 }
-                //let debounce_timestamps = debounce_timestamps.clone();
                 if let Some(debounce_timestamps) = debounce_timestamps.clone() {
                     if let Some(instant) = debounce_timestamps.read().unwrap().get(&handler_path) {
                         if instant > &(Instant::now() - period.clone()) {

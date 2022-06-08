@@ -27,6 +27,4 @@ fn main() {
     .unwrap();
 
     thread::park();
-
-    drop(watcher)
 }
