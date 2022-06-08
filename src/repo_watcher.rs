@@ -68,9 +68,8 @@ impl RepoWatcher {
                     if repo.is_ignored(path).unwrap_or(true) {
                         print!("Event: {}", rel.to_str().unwrap());
                         repo.snapshot();
-                        println!("Took snapshot"
+                        println!("Took snapshot")
                     }
-    
                 }
             };
             watcher.watch_path(canonicalize(path)?, Box::new(handler))?;
