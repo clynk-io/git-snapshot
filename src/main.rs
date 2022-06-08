@@ -25,6 +25,7 @@ fn main() {
         period: Duration::from_secs(30),
     })
     .unwrap();
+
     thread::park();
     drop(watcher)
 }
