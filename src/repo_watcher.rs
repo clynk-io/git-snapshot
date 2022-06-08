@@ -54,12 +54,11 @@ impl RepoWatcher {
 
         let watcher = Self::watcher(config, debounce_timestamps.clone())?;
         let watcher = Arc::new(Mutex::new(watcher));
-        let watcher_clone = watcher.clone();
         watcher.lock().unwrap().watch_path(
             config_path,
             Box::new(move |path: PathBuf, handler_path: PathBuf| {
                 let config = Self::open_config(&path);
-                let watcher = watcher_clone.clone();
+                let watcher = watcher.clone();
                 if let Ok(config) = config {
                     let w = Self::watcher(config, debounce_timestamps.clone()).unwrap();
                     let mut watcher = watcher.lock().unwrap();
