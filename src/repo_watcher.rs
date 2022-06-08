@@ -25,7 +25,7 @@ pub struct RepoConfig {
 }
 pub struct RepoWatcher{
     watcher:  Arc<Mutex<Watcher>>,
-    debounce_timestaps: HashMap<PathBuf, Instant> 
+    debounce_timestamps: Option<Arc<RwLock<HashMap<PathBuf, Instant>>>
 };
 
 impl RepoWatcher {
