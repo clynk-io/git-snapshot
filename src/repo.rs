@@ -29,7 +29,7 @@ impl Repo {
         &self.git_repo
     }
 
-    fn snapshot_branch(config: &Config, current_branch: &str) -> String {
+    pub fn snapshot_branch(config: &Config, current_branch: &str) -> String {
         let snapshot_branch = String::from_config(
             &config,
             &[
@@ -43,7 +43,6 @@ impl Repo {
 
     pub fn snapshot(&self) -> Result<(), Error> {
         let current_branch = self.current_branch()?;
-
         let config = self.git_repo.config()?;
 
         // Check if snapshotting is enabled for the current branch
@@ -209,10 +208,14 @@ impl Repo {
             }
         }
     }
+
+    pub fn is_ignored(&self, path: &Path) -> Result<bool, Error> {
+        Ok(self.git_repo.is_path_ignored(path)?)
+    }
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use std::path::Path;
 
     use git2::Signature;
@@ -260,6 +263,14 @@ mod tests {
             .unwrap();
     }
 
+    pub fn check_snapshot_exists(repo: &Repo) -> bool {
+        let config = repo.git_repo.config().unwrap();
+        let snapshot_branch = Repo::snapshot_branch(&config, &repo.current_branch().unwrap());
+        repo.git_repo
+            .resolve_reference_from_short_name(&snapshot_branch)
+            .is_ok()
+    }
+
     #[test]
     fn snapshot() {
         let temp_dir = tempdir().unwrap();
@@ -284,15 +295,7 @@ mod tests {
         let repo = Repo::new(repo);
         repo.snapshot().unwrap();
 
-        let current_branch = repo.current_branch().unwrap();
-        let snapshot_branch = Repo::snapshot_branch(&config, &current_branch);
-
-        assert_eq!(
-            None,
-            repo.git_repo
-                .resolve_reference_from_short_name(&snapshot_branch)
-                .err()
-        );
+        assert!(check_snapshot_exists(&repo))
     }
 
     #[test]
@@ -371,12 +374,7 @@ mod tests {
 
         repo.snapshot().unwrap();
 
-        assert_eq!(
-            None,
-            repo.git_repo
-                .resolve_reference_from_short_name(&snapshot_branch)
-                .err()
-        );
+        assert!(check_snapshot_exists(&repo));
     }
 
     #[test]
@@ -396,12 +394,7 @@ mod tests {
 
         repo.snapshot().unwrap();
 
-        assert_eq!(
-            None,
-            repo.git_repo
-                .resolve_reference_from_short_name(&snapshot_branch)
-                .err()
-        );
+        assert!(check_snapshot_exists(&repo));
     }
 
     #[test]
@@ -422,12 +415,7 @@ mod tests {
 
         repo.snapshot().unwrap();
 
-        assert_eq!(
-            None,
-            repo.git_repo
-                .resolve_reference_from_short_name("snapshottest/test")
-                .err()
-        );
+        assert!(check_snapshot_exists(&repo));
     }
 
     #[test]
@@ -523,7 +511,7 @@ mod tests {
 
         let repo = Repo::new(repo);
 
-        assert_eq!(Error::InvalidHead, repo.snapshot().err().unwrap());
+        assert!(matches!(repo.snapshot().err().unwrap(), Error::InvalidHead));
     }
 
     #[test]
@@ -537,6 +525,6 @@ mod tests {
         repo.set_head_detached(repo.head().unwrap().peel_to_commit().unwrap().id())
             .unwrap();
 
-        assert_eq!(None, Repo::from_path(temp_dir.path()).err());
+        assert!(Repo::from_path(temp_dir.path()).is_ok());
     }
 }
