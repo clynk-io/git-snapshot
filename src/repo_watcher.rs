@@ -72,7 +72,7 @@ impl RepoWatcher {
          ))    
         }
 
-    pub fn watcher(config: WatchConfig, debounce_timestamps: Arc<RwLock<HashMap<PathBuf, Instant>>>) -> Result<Watcher, Error> {
+    pub fn watcher(config: WatchConfig, debounce_timestamps: Option<Arc<RwLock<HashMap<PathBuf, Instant>>>>) -> Result<Watcher, Error> {
         let mut watcher = Watcher::new(&config.mode, Duration::from_millis(500))?;
 
         for RepoConfig { path } in &config.repos {
