@@ -66,7 +66,7 @@ impl RepoWatcher {
             &WatchMode::Poll => None
          };
          Ok(Self(
-             Arc::new(Mutex::new(Self::watcher(config)?)),
+             Arc::new(Mutex::new(Self::watcher(config, debounce_timestamps)?)),
          ))    
         }
 
