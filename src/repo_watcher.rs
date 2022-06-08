@@ -106,7 +106,7 @@ impl RepoWatcher {
                     return;
                 }
 
-                if Self::debounce(debounce_timestamps, &handler_path) {
+                if Self::debounce(debounce_timestamps.clone(), &handler_path, period.clone()) {
                     return;
                 }
                 if let Ok(repo) = Repo::from_path(&path) {
