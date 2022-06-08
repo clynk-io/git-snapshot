@@ -43,7 +43,6 @@ impl Repo {
 
     pub fn snapshot(&self) -> Result<(), Error> {
         let current_branch = self.current_branch()?;
-
         let config = self.git_repo.config()?;
 
         // Check if snapshotting is enabled for the current branch
