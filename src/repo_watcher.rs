@@ -65,6 +65,7 @@ impl RepoWatcher {
                     return;
                 }
                 if let Ok(repo) = Repo::from_path(path) {
+                    print!("Event: {}", rel)
                     repo.snapshot();
                     println!("Took snapshot")
                 }
