@@ -33,10 +33,9 @@ impl RepoWatcher {
            &WatchMode::Event => Some(Arc::new(RwLock::new(HashMap::new()))),
            &WatchMode::Poll => None
         };
-        Ok(Self{
-            watcher: Arc::new(Mutex::new(Self::watcher(config)?)),
-            debounce_timestamps
-        })
+        Ok(Self(
+            Arc::new(Mutex::new(Self::watcher(config, debounce_timestamps)?)),
+        ))
     }
 
     fn open_config(config_path: &Path) -> Result<WatchConfig, Error> {
