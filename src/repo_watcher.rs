@@ -52,7 +52,6 @@ impl RepoWatcher {
             &WatchMode::Poll => None
          };
 
-         let debounce_timestamps_clone = debounce_timestamps.clone();
 
         let watcher = Self::watcher(config, debounce_timestamps.clone())?;
         let watcher = Arc::new(Mutex::new(watcher));
