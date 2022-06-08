@@ -78,6 +78,7 @@ impl RepoWatcher {
         let mut watcher = Watcher::new(&config.mode, Duration::from_millis(500))?;
         let period = config.period.clone();
         for RepoConfig { path } in &config.repos {
+            let debounce_timestamps = debounce_timestamps.clone();
             let handler = move |path: PathBuf, handler_path: PathBuf| {
                 let rel = path.strip_prefix(handler_path).unwrap();
                 if rel.starts_with(".git") {
