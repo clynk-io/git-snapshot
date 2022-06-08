@@ -51,6 +51,7 @@ impl RepoWatcher {
             &WatchMode::Event => Some(Arc::new(Mutex::new(HashMap::new()))),
             &WatchMode::Poll => None,
         };
+        let period = config.period.clone();
 
         let watcher = Self::watcher(config, debounce_timestamps.clone())?;
         let watcher = Arc::new(Mutex::new(watcher));
