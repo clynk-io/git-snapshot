@@ -51,8 +51,8 @@ impl RepoWatcher {
             &WatchMode::Event => Some(Arc::new(RwLock::new(HashMap::new()))),
             &WatchMode::Poll => None
          };
-         
-        let watcher = Self::watcher(config)?;
+
+        let watcher = Self::watcher(config, debounce_timestamps)?;
         let watcher = Arc::new(Mutex::new(watcher));
         let watcher_clone = watcher.clone();
         watcher.lock().unwrap().watch_path(
