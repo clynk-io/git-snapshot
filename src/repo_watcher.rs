@@ -54,6 +54,7 @@ impl RepoWatcher {
 
         let watcher = Self::watcher(config, debounce_timestamps.clone())?;
         let watcher = Arc::new(Mutex::new(watcher));
+        let watcher_clone = watcher.clone();
         watcher.lock().unwrap().watch_path(
             config_path,
             Box::new(move |path: PathBuf, handler_path: PathBuf| {
