@@ -62,8 +62,14 @@ impl RepoWatcher {
                 }
             }),
         )?;
-        Ok(Self(watcher))
-    }
+        let debounce_timestamps = match &config.mode {
+            &WatchMode::Event => Some(Arc::new(RwLock::new(HashMap::new()))),
+            &WatchMode::Poll => None
+         };
+         Ok(Self{
+             watcher: Arc::new(Mutex::new(Self::watcher(config)?)),
+             debounce_timestamps
+         })    }
 
     pub fn watcher(config: WatchConfig) -> Result<Watcher, Error> {
         let mut watcher = Watcher::new(&config.mode, Duration::from_millis(500))?;
