@@ -22,7 +22,7 @@ fn main() {
     let watcher = RepoWatcher::new(WatchConfig {
         repos: vec![RepoConfig { path: "./".into() }],
         mode: WatchMode::Event,
-        period: Duration::from_secs(30),
+        period: Duration::from_secs(10),
     })
     .unwrap();
 
