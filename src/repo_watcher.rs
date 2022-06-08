@@ -24,7 +24,7 @@ pub struct RepoConfig {
     pub path: PathBuf,
 }
 pub struct RepoWatcher{
-    watcher:   Arc<Mutex<Watcher>>
+    watcher:  Arc<Mutex<Watcher>>
 };
 
 impl RepoWatcher {
