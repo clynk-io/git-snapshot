@@ -62,7 +62,7 @@ impl RepoWatcher {
                 let watcher = watcher_clone.clone();
                 if let Ok(config) = config {
                     let w = Self::watcher(config, debounce_timestamps.clone()).unwrap();
-                    let mut watcher = watcher.clone().lock().unwrap();
+                    let mut watcher = watcher.lock().unwrap();
                     *watcher = w;
                 }
             }),
