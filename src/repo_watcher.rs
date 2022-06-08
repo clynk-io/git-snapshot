@@ -23,7 +23,9 @@ pub struct WatchConfig {
 pub struct RepoConfig {
     pub path: PathBuf,
 }
-pub struct RepoWatcher(Arc<Mutex<Watcher>>);
+pub struct RepoWatcher{
+    watcher:   Arc<Mutex<Watcher>>
+};
 
 impl RepoWatcher {
     pub fn new(config: WatchConfig) -> Result<Self, Error> {
