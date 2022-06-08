@@ -36,6 +36,7 @@ impl RepoWatcher {
         };
         Ok(Self{
             watcher: Arc::new(Mutex::new(Self::watcher(config)?)),
+            debounce_timestamps
         })
     }
 
