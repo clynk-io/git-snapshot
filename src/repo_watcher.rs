@@ -86,7 +86,7 @@ impl RepoWatcher {
                 }
                 if let Some(debounce_timestamps) = debounce_timestamps.clone() {
                     if let Some(instant) = debounce_timestamps
-                        .read()
+                        .lock()
                         .unwrap()
                         .insert(handler_path.clone(), Instant::now())
                     {
