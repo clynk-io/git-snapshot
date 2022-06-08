@@ -74,7 +74,7 @@ impl RepoWatcher {
 
     pub fn watcher(config: WatchConfig, debounce_timestamps: Option<Arc<RwLock<HashMap<PathBuf, Instant>>>>) -> Result<Watcher, Error> {
         let mut watcher = Watcher::new(&config.mode, Duration::from_millis(500))?;
-
+        let period = config.period;
         for RepoConfig { path } in &config.repos {
             let handler = move |path: PathBuf, handler_path: PathBuf| {
                 let rel = path.strip_prefix(handler_path).unwrap();
@@ -82,7 +82,9 @@ impl RepoWatcher {
                     return;
                 }
                 if let Some(debounce_timestamps) = debounce_timestamps {
-                    if let Some(instance) = debounce_timestamps.read().unwrap().get(&handler_path)
+                    if let Some(instant) = debounce_timestamps.read().unwrap().get(&handler_path) {
+                        if instance < Instant::now() + cof
+                    }
                 }
                 if let Ok(repo) = Repo::from_path(&path) {
                     if !repo.is_ignored(rel).unwrap_or(false) {
