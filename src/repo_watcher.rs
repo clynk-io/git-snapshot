@@ -73,13 +73,13 @@ impl RepoWatcher {
 
     fn debounce(
         debounce_timestamps: Option<Arc<Mutex<HashMap<PathBuf, Instant>>>>,
-        handler_path: PathBuf,
+        handler_path: &Path,
     ) -> bool {
         if let Some(debounce_timestamps) = debounce_timestamps.clone() {
             if let Some(instant) = debounce_timestamps
                 .lock()
                 .unwrap()
-                .insert(handler_path.clone(), Instant::now())
+                .insert(handler_path.to_owned(), Instant::now())
             {
                 if instant + period > Instant::now() {
                     return true;
