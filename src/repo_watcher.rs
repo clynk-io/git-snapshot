@@ -64,7 +64,7 @@ impl RepoWatcher {
                 if rel.starts_with(".git") {
                     return;
                 }
-                if let Ok(repo) = Repo::from_path(path) {
+                if let Ok(repo) = Repo::from_path(&path) {
                     print!("Event: {}", rel.to_str().unwrap());
                     repo.snapshot();
                     println!("Took snapshot")
