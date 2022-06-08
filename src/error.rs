@@ -10,4 +10,6 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("json error: {0:?}")]
     Json(#[from] serde_json::error::Error),
+    #[error("notify error: {0:?}")]
+    Notify(#[from] notify::Error),
 }

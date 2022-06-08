@@ -1,61 +1,96 @@
-use crate::error::Error;
+use notify::{
+    poll::PollWatcherConfig, Event, EventHandler, PollWatcher, RecommendedWatcher,
+    Watcher as NotifyWatcher,
+};
 use serde::{Deserialize, Serialize};
-use serde_json::from_reader;
-use std::{fs::OpenOptions, path::PathBuf};
-use time::Duration;
+
+use crate::error::Error;
+use std::{
+    path::{Path, PathBuf},
+    rc::Rc,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 #[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase", tag = "mode", content = "modeConfig")]
 pub enum WatchMode {
-    Poll { period: Duration },
     Event,
+    Poll,
 }
 
-impl Default for WatchMode {
-    fn default() -> Self {
-        Self::Event
+pub trait Handler {
+    fn handle(&mut self, path: PathBuf);
+}
+
+impl<F: FnMut(PathBuf) -> ()> Handler for F {
+    fn handle(&mut self, path: PathBuf) {
+        (self)(path);
     }
 }
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RepoConfig {
-    pub path: PathBuf,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WatchConfig {
-    #[serde(default)]
-    pub repos: Vec<RepoConfig>,
-    #[serde(default, flatten)]
-    pub mode: WatchMode,
-}
+type BoxedNotifyWatcher = Box<dyn NotifyWatcher + Send + Sync>;
 
 pub struct Watcher {
-    config_path: Option<PathBuf>,
-    config: WatchConfig,
+    notify_watcher: BoxedNotifyWatcher,
+    paths: Arc<Mutex<Vec<(PathBuf, Box<dyn Handler + Send + Sync>)>>>,
 }
 
 impl Watcher {
-    pub fn from_config_path(config_path: impl Into<PathBuf>) -> Result<Self, Error> {
-        let config_path = config_path.into();
-        let f = OpenOptions::new().read(true).open(&config_path)?;
-        let config: WatchConfig = from_reader(f)?;
-        Ok(Watcher {
-            config_path: Some(config_path),
-            config: config,
+    fn notify_watcher(
+        mode: &WatchMode,
+        period: Duration,
+        handler: impl EventHandler,
+    ) -> Result<BoxedNotifyWatcher, Error> {
+        let watcher: BoxedNotifyWatcher = match mode {
+            WatchMode::Event => {
+                let watcher = RecommendedWatcher::new(handler)?;
+                Box::new(watcher)
+            }
+            WatchMode::Poll => {
+                let watcher = PollWatcher::with_config(
+                    handler,
+                    PollWatcherConfig {
+                        poll_interval: period.clone(),
+                        compare_contents: false,
+                    },
+                )?;
+                Box::new(watcher)
+            }
+        };
+        Ok(watcher)
+    }
+
+    pub fn new(mode: &WatchMode, period: Duration) -> Result<Self, Error> {
+        let paths: Arc<Mutex<Vec<(PathBuf, Box<dyn Handler + Send + Sync>)>>> =
+            Arc::new(Mutex::new(Vec::new()));
+        let paths_clone = paths.clone();
+        let handler = move |event: Result<Event, notify::Error>| -> () {
+            if let Ok(event) = event {
+                let mut paths = paths_clone.lock().unwrap();
+                for (p, handler) in &mut *paths {
+                    for event_path in &event.paths {
+                        if event_path.starts_with(p.as_path()) {
+                            handler.handle(event_path.clone())
+                        }
+                    }
+                }
+            }
+        };
+        let notify_watcher = Self::notify_watcher(&mode, period, handler)?;
+        Ok(Self {
+            notify_watcher,
+            paths,
         })
     }
 
-    pub fn new(config: WatchConfig) -> Self {
-        Watcher {
-            config_path: None,
-            config: config,
-        }
-    }
-
-    pub fn watch() -> Result<(), Error> {
-        todo!()
+    pub fn watch_path(
+        &mut self,
+        path: impl Into<PathBuf>,
+        handler: Box<dyn Handler + Send + Sync>,
+    ) -> Result<(), Error> {
+        let path = path.into();
+        self.notify_watcher
+            .watch(&path, notify::RecursiveMode::Recursive)?;
+        self.paths.lock().unwrap().push((path, handler));
+        Ok(())
     }
 }

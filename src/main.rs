@@ -1,10 +1,12 @@
-use git_snapshot::watcher::{WatchConfig, WatchMode};
+use git_snapshot::repo_watcher::{RepoConfig, RepoWatcher, WatchConfig};
+use git_snapshot::watcher::WatchMode;
 use git_snapshot::Repo;
 use serde_json::to_writer_pretty;
 use std::env::current_dir;
 use std::fs::OpenOptions;
+use std::thread;
+use std::time::Duration;
 use structopt::StructOpt;
-use time::Duration;
 
 fn main() {
     let cwd = current_dir().unwrap();
@@ -17,12 +19,12 @@ fn main() {
         .open("config.json")
         .unwrap();
 
-    to_writer_pretty(
-        f,
-        &WatchConfig {
-            mode: WatchMode::Event,
-            repos: vec![],
-        },
-    )
+    let watcher = RepoWatcher::new(WatchConfig {
+        repos: vec![RepoConfig { path: "./".into() }],
+        mode: WatchMode::Event,
+        period: Duration::from_secs(30),
+    })
     .unwrap();
+    thread::park();
+    drop(watcher)
 }
