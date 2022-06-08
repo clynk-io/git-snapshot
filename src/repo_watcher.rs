@@ -4,7 +4,7 @@ use std::{
     collections::HashMap,
     fs::{canonicalize, OpenOptions},
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, Mutex, Mutex},
     time::{Duration, Instant},
 };
 
@@ -29,7 +29,7 @@ pub struct RepoWatcher(Arc<Mutex<Watcher>>);
 impl RepoWatcher {
     pub fn new(config: WatchConfig) -> Result<Self, Error> {
         let debounce_timestamps = match &config.mode {
-            &WatchMode::Event => Some(Arc::new(RwLock::new(HashMap::new()))),
+            &WatchMode::Event => Some(Arc::new(Mutex::new(HashMap::new()))),
             &WatchMode::Poll => None,
         };
         Ok(Self(Arc::new(Mutex::new(Self::watcher(
@@ -48,7 +48,7 @@ impl RepoWatcher {
         let config = Self::open_config(config_path)?;
 
         let debounce_timestamps = match &config.mode {
-            &WatchMode::Event => Some(Arc::new(RwLock::new(HashMap::new()))),
+            &WatchMode::Event => Some(Arc::new(Mutex::new(HashMap::new()))),
             &WatchMode::Poll => None,
         };
 
@@ -73,7 +73,7 @@ impl RepoWatcher {
 
     pub fn watcher(
         config: WatchConfig,
-        debounce_timestamps: Option<Arc<RwLock<HashMap<PathBuf, Instant>>>>,
+        debounce_timestamps: Option<Arc<Mutex<HashMap<PathBuf, Instant>>>>,
     ) -> Result<Watcher, Error> {
         let mut watcher = Watcher::new(&config.mode, Duration::from_millis(500))?;
         let period = config.period.clone();
@@ -94,11 +94,6 @@ impl RepoWatcher {
                             return;
                         }
                     }
-
-                    debounce_timestamps
-                        .write()
-                        .unwrap()
-                        .insert(handler_path, Instant::now());
                 }
                 if let Ok(repo) = Repo::from_path(&path) {
                     if !repo.is_ignored(rel).unwrap_or(false) {
