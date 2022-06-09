@@ -6,11 +6,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::Error;
 use std::{
-    path::{Path, PathBuf},
-    rc::Rc,
+    collections::HashMap,
+    path::PathBuf,
     sync::{Arc, Mutex},
     time::Duration,
 };
+use tokio::{sync::mpsc::unbounded_channel, time::sleep};
+
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum WatchMode {
@@ -31,7 +33,7 @@ type BoxedNotifyWatcher = Box<dyn NotifyWatcher + Send + Sync>;
 
 pub struct Watcher {
     notify_watcher: BoxedNotifyWatcher,
-    paths: Arc<Mutex<Vec<(PathBuf, Box<dyn Handler + Send + Sync>)>>>,
+    paths: Arc<Mutex<HashMap<PathBuf, Box<dyn Handler + Send + Sync>>>>,
 }
 
 impl Watcher {
@@ -60,25 +62,57 @@ impl Watcher {
     }
 
     pub fn new(mode: &WatchMode, period: Duration) -> Result<Self, Error> {
-        let paths: Arc<Mutex<Vec<(PathBuf, Box<dyn Handler + Send + Sync>)>>> =
-            Arc::new(Mutex::new(Vec::new()));
-        let paths_clone = paths.clone();
+        let paths: Arc<Mutex<HashMap<PathBuf, Box<dyn Handler + Send + Sync>>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        let (tx, mut rx) = unbounded_channel::<PathBuf>();
         let handler = move |event: Result<Event, notify::Error>| -> () {
             if let Ok(event) = event {
                 if !event.kind.is_create() && !event.kind.is_modify() && !event.kind.is_remove() {
                     return;
                 }
-                let mut paths = paths_clone.lock().unwrap();
-                for (p, handler) in &mut *paths {
-                    for event_path in &event.paths {
-                        if event_path.starts_with(p.as_path()) {
-                            handler.handle(event_path.clone(), p.clone())
+
+                for event_path in &event.paths {
+                    tx.send(event_path.clone());
+                }
+            }
+        };
+
+        let paths_clone = paths.clone();
+        let period_clone = period.clone();
+        let debouncers = Arc::new(Mutex::new(HashMap::new()));
+        let debouncers_clone = debouncers.clone();
+
+        tokio::spawn(async move {
+            while let Some(event_path) = rx.recv().await {
+                let paths = paths_clone.lock().unwrap();
+
+                for p in paths.keys() {
+                    if event_path.starts_with(p.as_path()) {
+                        let handler_path = p.clone();
+                        let handlers = paths_clone.clone();
+                        let period = period_clone.clone();
+                        let event_path = event_path.clone();
+                        let join_handle = tokio::spawn(async move {
+                            sleep(period).await;
+                            if let Some(handler) = handlers.lock().unwrap().get_mut(&handler_path) {
+                                handler.handle(event_path, handler_path);
+                            }
+                        });
+
+                        if let Some(old_handle) = debouncers_clone
+                            .lock()
+                            .unwrap()
+                            .insert(p.clone(), join_handle)
+                        {
+                            old_handle.abort();
                         }
                     }
                 }
             }
-        };
+        });
+
         let notify_watcher = Self::notify_watcher(&mode, period, handler)?;
+
         Ok(Self {
             notify_watcher,
             paths,
@@ -93,7 +127,7 @@ impl Watcher {
         let path = path.into();
         self.notify_watcher
             .watch(&path, notify::RecursiveMode::Recursive)?;
-        self.paths.lock().unwrap().push((path, handler));
+        self.paths.lock().unwrap().insert(path, handler);
         Ok(())
     }
 }

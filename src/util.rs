@@ -76,7 +76,7 @@ pub mod tests {
 
     use super::*;
     use git2::Repository;
-    use tempfile::tempdir;
+    use tempfile::{tempdir, NamedTempFile};
 
     pub fn test_repo(path: &Path) -> (Repository, Config) {
         let repo = Repository::init(path).unwrap();
@@ -85,6 +85,10 @@ pub mod tests {
         config.set_str("user.email", "test@test.test").unwrap();
 
         (repo, config)
+    }
+
+    pub fn create_temp_file(p: &Path) {
+        NamedTempFile::new_in(p).unwrap().keep().unwrap();
     }
 
     #[test]
