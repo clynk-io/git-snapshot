@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::Error;
 use std::{
     collections::HashMap,
+    fs::canonicalize,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
     time::Duration,
@@ -99,6 +100,7 @@ impl Watcher {
                         if let Some(old_handle) = debouncers.insert(p.clone(), join_handle) {
                             old_handle.abort();
                         }
+                        break;
                     }
                 }
             }
@@ -114,10 +116,10 @@ impl Watcher {
 
     pub fn watch_path(
         &mut self,
-        path: impl Into<PathBuf>,
+        path: impl AsRef<Path>,
         handler: Box<dyn Handler + Send + Sync>,
     ) -> Result<(), Error> {
-        let path = path.into();
+        let path = canonicalize(path)?;
         self.notify_watcher
             .watch(&path, notify::RecursiveMode::Recursive)?;
 
@@ -126,9 +128,93 @@ impl Watcher {
         Ok(())
     }
 
-    pub fn unwatch_path(&mut self, path: &Path) -> Result<(), Error> {
-        self.notify_watcher.unwatch(path)?;
-        self.handlers.lock().unwrap().remove(path);
+    pub fn unwatch_path(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
+        let path = canonicalize(path).unwrap();
+        self.notify_watcher.unwatch(&path)?;
+        self.handlers.lock().unwrap().remove(&path);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tempfile::{tempdir, NamedTempFile};
+    use tokio::sync::mpsc::UnboundedReceiver;
+
+    use super::WatchMode;
+    use super::*;
+
+    fn test_watcher(path: &Path, mode: &WatchMode) -> (Watcher, UnboundedReceiver<PathBuf>) {
+        let mut watcher = Watcher::new(mode, Duration::from_millis(100)).unwrap();
+        let (tx, rx) = unbounded_channel();
+        watcher
+            .watch_path(
+                path,
+                Box::new(move |p: PathBuf| {
+                    let _ = tx.send(p);
+                }),
+            )
+            .unwrap();
+        (watcher, rx)
+    }
+    #[tokio::test(flavor = "multi_thread")]
+    async fn event_watcher() {
+        let root = tempdir().unwrap();
+        let root_path = canonicalize(root.path()).unwrap();
+        let (_watcher, mut rx) = test_watcher(root.path(), &WatchMode::Event);
+        NamedTempFile::new_in(root.path()).unwrap().keep().unwrap();
+
+        let item = rx.recv().await;
+        assert!(item.is_some());
+        assert_eq!(item.unwrap(), root_path);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn poll_watcher() {
+        let root = tempdir().unwrap();
+        let root_path = canonicalize(root.path()).unwrap();
+        let (_watcher, mut rx) = test_watcher(
+            root.path(),
+            &WatchMode::Poll {
+                interval: Duration::from_millis(10),
+            },
+        );
+        NamedTempFile::new_in(root.path()).unwrap().keep().unwrap();
+
+        let item = rx.recv().await;
+        assert!(item.is_some());
+        assert_eq!(item.unwrap(), root_path);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn debounce() {
+        let root = tempdir().unwrap();
+        let root_path = canonicalize(root.path()).unwrap();
+        let (_watcher, mut rx) = test_watcher(root.path(), &WatchMode::Event);
+
+        NamedTempFile::new_in(root.path()).unwrap().keep().unwrap();
+        sleep(Duration::from_millis(50)).await;
+
+        NamedTempFile::new_in(root.path()).unwrap().keep().unwrap();
+        assert!(rx.try_recv().is_err());
+
+        sleep(Duration::from_millis(100)).await;
+
+        let item = rx.recv().await;
+        assert!(item.is_some());
+        assert_eq!(item.unwrap(), root_path);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn unwatch() {
+        let root = tempdir().unwrap();
+        let root_path = canonicalize(root.path()).unwrap();
+        let (mut watcher, mut rx) = test_watcher(root.path(), &WatchMode::Event);
+
+        watcher.unwatch_path(&root_path).unwrap();
+
+        NamedTempFile::new_in(root.path()).unwrap().keep().unwrap();
+
+        assert!(rx.recv().await.is_none());
     }
 }

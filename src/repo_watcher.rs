@@ -17,7 +17,7 @@ use crate::{
 pub struct WatchConfig {
     pub repos: Vec<RepoConfig>,
     pub mode: WatchMode,
-    pub period: Duration,
+    pub debounce_period: Duration,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -43,18 +43,18 @@ impl RepoWatcher {
         let config_path = config_path.as_ref();
         let config = Self::open_config(config_path)?;
 
-        let period = config.period.clone();
+        let debounce_period = config.debounce_period.clone();
 
         let watcher = Self::watcher(config)?;
         let watcher = Arc::new(Mutex::new(watcher));
-        Self::watch_config(watcher.clone(), config_path, period)?;
+        Self::watch_config(watcher.clone(), config_path, debounce_period)?;
 
         Ok(Self(watcher))
     }
 
     pub fn watcher(config: WatchConfig) -> Result<Watcher, Error> {
-        let period = config.period.clone();
-        let mut watcher = Watcher::new(&config.mode, period.clone())?;
+        let debounce_period = config.debounce_period.clone();
+        let mut watcher = Watcher::new(&config.mode, debounce_period.clone())?;
         for RepoConfig { path } in &config.repos {
             let handler = move |path: PathBuf| {
                 let rel = path.strip_prefix(&path).unwrap();
@@ -64,9 +64,7 @@ impl RepoWatcher {
 
                 if let Ok(repo) = Repo::from_path(&path) {
                     if !repo.is_ignored(rel).unwrap_or(false) {
-                        if repo.snapshot().is_ok() {
-                            println!("Took snapshot");
-                        }
+                        if repo.snapshot().is_ok() {}
                     }
                 }
             };
@@ -123,7 +121,7 @@ mod tests {
                 path: repo_path.path().to_owned(),
             }],
             mode: WatchMode::Event,
-            period: Duration::from_millis(50),
+            debounce_period: Duration::from_millis(50),
         })
         .unwrap();
 
@@ -131,6 +129,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
+    #[ignore]
     async fn event_watcher() {
         let (repo_path, repo, repo_watcher) = test_repo_watcher(WatchMode::Event);
         create_temp_file(repo_path.path());
@@ -142,8 +141,9 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
+    #[ignore]
     async fn event_watcher_debounce() {
-        let (repo_path, repo, repo_watcher) = test_repo_watcher(WatchMode::Event);
+        let (repo_path, repo, _repo_watcher) = test_repo_watcher(WatchMode::Event);
         create_temp_file(repo_path.path());
         sleep(Duration::from_millis(100));
         create_temp_file(repo_path.path());
@@ -168,7 +168,5 @@ mod tests {
             .unwrap();
 
         assert_eq!(2, ref_log.len());
-
-        drop(repo_watcher);
     }
 }

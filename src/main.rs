@@ -7,11 +7,11 @@ use std::fs::OpenOptions;
 use std::thread;
 use std::time::Duration;
 
-
 fn main() {
     let cwd = current_dir().unwrap();
     let repo = Repo::from_path(cwd).unwrap();
     repo.snapshot().unwrap();
+
     let _f = OpenOptions::new()
         .create(true)
         .write(true)
@@ -22,7 +22,7 @@ fn main() {
     let _watcher = RepoWatcher::new(WatchConfig {
         repos: vec![RepoConfig { path: "./".into() }],
         mode: WatchMode::Event,
-        period: Duration::from_secs(10),
+        debounce_period: Duration::from_secs(10),
     })
     .unwrap();
 
