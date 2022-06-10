@@ -5,7 +5,7 @@ use std::{
     fs::{canonicalize, OpenOptions},
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
-    time::{Duration},
+    time::Duration,
 };
 
 use crate::{
@@ -56,8 +56,8 @@ impl RepoWatcher {
         let period = config.period.clone();
         let mut watcher = Watcher::new(&config.mode, period.clone())?;
         for RepoConfig { path } in &config.repos {
-            let handler = move |path: PathBuf, handler_path: PathBuf| {
-                let rel = path.strip_prefix(&handler_path).unwrap();
+            let handler = move |path: PathBuf| {
+                let rel = path.strip_prefix(&path).unwrap();
                 if rel.starts_with(".git") {
                     return;
                 }
@@ -82,14 +82,13 @@ impl RepoWatcher {
     ) -> Result<(), Error> {
         watcher.clone().lock().unwrap().watch_path(
             config_path,
-            Box::new(move |_path: PathBuf, handler_path: PathBuf| {
-                if let Ok(config) = Self::open_config(&handler_path) {
+            Box::new(move |path: PathBuf| {
+                if let Ok(config) = Self::open_config(&path) {
                     if let Ok(w) = Self::watcher(config) {
                         let mut w_lock = watcher.lock().unwrap();
                         *w_lock = w;
                         drop(w_lock);
-                        if let Err(err) = Self::watch_config(watcher.clone(), &handler_path, period)
-                        {
+                        if let Err(err) = Self::watch_config(watcher.clone(), &path, period) {
                             error!("{:?}", err);
                         }
                     }
@@ -103,7 +102,6 @@ impl RepoWatcher {
 mod tests {
     use std::{thread::sleep, time::Duration};
 
-    
     use tempfile::{tempdir, TempDir};
 
     use crate::{
