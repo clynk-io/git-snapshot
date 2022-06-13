@@ -141,7 +141,6 @@ mod tests {
     use tempfile::{tempdir, NamedTempFile};
     use tokio::sync::mpsc::UnboundedReceiver;
 
-    use super::WatchMode;
     use super::*;
 
     fn test_watcher(path: &Path, mode: &WatchMode) -> (Watcher, UnboundedReceiver<PathBuf>) {

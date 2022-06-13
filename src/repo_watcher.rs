@@ -52,7 +52,7 @@ impl RepoWatcher {
         Ok(Self(watcher))
     }
 
-    pub fn watcher(config: WatchConfig) -> Result<Watcher, Error> {
+    fn watcher(config: WatchConfig) -> Result<Watcher, Error> {
         let debounce_period = config.debounce_period.clone();
         let mut watcher = Watcher::new(&config.mode, debounce_period.clone())?;
         for RepoConfig { path } in &config.repos {
@@ -98,9 +98,11 @@ impl RepoWatcher {
 
 #[cfg(test)]
 mod tests {
-    use std::{thread::sleep, time::Duration};
+    use std::time::Duration;
 
-    use tempfile::{tempdir, TempDir};
+    use super::*;
+    use tempfile::{tempdir, NamedTempFile, TempDir};
+    use tokio::time::sleep;
 
     use crate::{
         tests::check_snapshot_exists,
@@ -108,8 +110,7 @@ mod tests {
         watcher::WatchMode,
         Repo,
     };
-
-    use super::{RepoConfig, RepoWatcher, WatchConfig};
+    use serde_json::to_writer;
 
     fn test_repo_watcher(_mode: WatchMode) -> (TempDir, Repo, RepoWatcher) {
         let repo_path = tempdir().unwrap();
@@ -129,44 +130,95 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    #[ignore]
-    async fn event_watcher() {
+    async fn repo_watcher() {
         let (repo_path, repo, repo_watcher) = test_repo_watcher(WatchMode::Event);
         create_temp_file(repo_path.path());
 
-        sleep(Duration::from_millis(100));
+        sleep(Duration::from_millis(100)).await;
         drop(repo_watcher);
 
         assert!(check_snapshot_exists(&repo));
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    #[ignore]
-    async fn event_watcher_debounce() {
-        let (repo_path, repo, _repo_watcher) = test_repo_watcher(WatchMode::Event);
-        create_temp_file(repo_path.path());
-        sleep(Duration::from_millis(100));
-        create_temp_file(repo_path.path());
+    async fn config_file() {
+        let repo_path = tempdir().unwrap();
+        let (repo, _) = test_repo(repo_path.path());
+        let repo = Repo::new(repo);
+        let config_path = NamedTempFile::new().unwrap();
+        let config = WatchConfig {
+            repos: vec![RepoConfig {
+                path: repo_path.path().to_owned(),
+            }],
+            mode: WatchMode::Event,
+            debounce_period: Duration::from_millis(10),
+        };
+        to_writer(config_path.as_file(), &config).unwrap();
 
-        let snapshot_branch = Repo::snapshot_branch(
-            &repo.git_repo().config().unwrap(),
-            repo.current_branch().unwrap().as_str(),
-        );
+        let _repo_watcher = RepoWatcher::with_config(config_path.path()).unwrap();
 
-        let ref_log = repo
-            .git_repo()
-            .reflog(&format!("refs/heads/{}", snapshot_branch))
+        NamedTempFile::new_in(repo_path.path())
+            .unwrap()
+            .keep()
+            .unwrap();
+        sleep(Duration::from_millis(50)).await;
+        assert!(check_snapshot_exists(&repo));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn config_file_change() {
+        let repo_path1 = tempdir().unwrap();
+        let (repo, _) = test_repo(repo_path1.path());
+        let repo1 = Repo::new(repo);
+        println!("Repo: {:?}", repo_path1);
+
+        let repo_path2 = tempdir().unwrap();
+        let (repo, _) = test_repo(repo_path2.path());
+        let repo2 = Repo::new(repo);
+
+        let config_path = NamedTempFile::new().unwrap();
+        let config = WatchConfig {
+            repos: vec![RepoConfig {
+                path: repo_path1.path().to_owned(),
+            }],
+            mode: WatchMode::Event,
+            debounce_period: Duration::from_millis(10),
+        };
+        to_writer(config_path.as_file(), &config).unwrap();
+
+        let _repo_watcher = RepoWatcher::with_config(config_path.path()).unwrap();
+
+        let config = WatchConfig {
+            repos: vec![RepoConfig {
+                path: repo_path2.path().to_owned(),
+            }],
+            mode: WatchMode::Event,
+            debounce_period: Duration::from_millis(10),
+        };
+        to_writer(
+            OpenOptions::new()
+                .truncate(true)
+                .write(true)
+                .open(config_path.path())
+                .unwrap(),
+            &config,
+        )
+        .unwrap();
+
+        sleep(Duration::from_millis(1000)).await;
+
+        NamedTempFile::new_in(repo_path1.path())
+            .unwrap()
+            .keep()
+            .unwrap();
+        NamedTempFile::new_in(repo_path2.path())
+            .unwrap()
+            .keep()
             .unwrap();
 
-        assert_eq!(1, ref_log.len());
+        sleep(Duration::from_millis(50)).await;
 
-        sleep(Duration::from_millis(1000));
-
-        let ref_log = repo
-            .git_repo()
-            .reflog(&format!("refs/heads/{}", snapshot_branch))
-            .unwrap();
-
-        assert_eq!(2, ref_log.len());
+        assert!(!check_snapshot_exists(&repo1));
+        assert!(check_snapshot_exists(&repo2));
     }
 }
