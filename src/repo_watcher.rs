@@ -14,13 +14,17 @@ use crate::{
 };
 
 #[derive(Debug, Deserialize, Serialize)]
+#[serde(rename = "camelCase")]
 pub struct WatchConfig {
     pub repos: Vec<RepoConfig>,
+    #[serde(flatten)]
     pub mode: WatchMode,
+    #[serde(with = "humantime_serde")]
     pub debounce_period: Duration,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+#[serde(rename = "camelCase")]
 pub struct RepoConfig {
     pub path: PathBuf,
 }

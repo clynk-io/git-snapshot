@@ -6,12 +6,11 @@ use structopt::StructOpt;
 
 use anyhow::{anyhow, Error};
 use std::env::current_dir;
-use std::fs::OpenOptions;
+use std::fs::{create_dir_all, OpenOptions};
 use std::io::ErrorKind;
 
 use std::path::{Path, PathBuf};
-use std::thread::{park};
-
+use std::thread::park;
 
 fn default_config_path() -> Result<PathBuf, Error> {
     let home = dirs::home_dir().ok_or(anyhow!("Unable to get home directory"))?;
@@ -47,7 +46,8 @@ enum AppCommands {
     },
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let app = App::from_args();
     if let Err(_err) = run(app) {}
 }
@@ -94,6 +94,8 @@ fn load_config(p: &Path) -> Result<WatchConfig, Error> {
 }
 
 fn save_config(p: &Path, config: &WatchConfig) -> Result<(), Error> {
+    create_dir_all(p.parent().ok_or(anyhow!("Invalid config path"))?)?;
+
     let f = OpenOptions::new()
         .write(true)
         .truncate(true)
