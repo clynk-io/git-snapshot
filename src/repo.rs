@@ -31,6 +31,7 @@ impl Repo {
 
     pub fn name(&self) -> String {
         let mut components = self.git_repo.path().components();
+        components.next_back();
         components
             .next_back()
             .and_then(|c| c.as_os_str().to_str())
