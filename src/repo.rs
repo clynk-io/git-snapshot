@@ -3,7 +3,7 @@ use crate::util::{branch_ref_shorthand, expand, ConfigValue, BRANCH_REF_PREFIX};
 use git2::{
     Config, Cred, ErrorCode, Index, IndexAddOption, PushOptions, RemoteCallbacks, Repository,
 };
-use log::{debug, info};
+use log::{debug, error, info};
 use std::path::Path;
 
 const BRANCH_SUB_KEY: &'static str = "BRANCH";
@@ -29,14 +29,13 @@ impl Repo {
         &self.git_repo
     }
 
-    pub fn name(&self) -> String {
+    pub fn name(&self) -> &str {
         let mut components = self.git_repo.path().components();
         components.next_back();
         components
             .next_back()
             .and_then(|c| c.as_os_str().to_str())
-            .map(|c| c.to_owned())
-            .unwrap_or("unknown".to_owned())
+            .unwrap_or("unknown")
     }
 
     pub fn snapshot_branch(config: &Config, current_branch: &str) -> String {
@@ -63,7 +62,11 @@ impl Repo {
         );
 
         if !enabled {
-            info!("Snapshots disabled for branch: {}", current_branch);
+            info!(
+                "Repo: {}, snapshots disabled for branch: {}",
+                self.name(),
+                current_branch
+            );
             return Ok(());
         }
 
@@ -146,7 +149,11 @@ impl Repo {
             );
 
             if !enabled {
-                debug!("Snapshots disabled for remote: {}", remote);
+                debug!(
+                    "Repo: {}, snapshots disabled for remote: {}",
+                    self.name(),
+                    remote
+                );
                 continue;
             }
 
@@ -191,12 +198,21 @@ impl Repo {
 
             let mut opts = PushOptions::new();
             opts.remote_callbacks(callbacks);
-            remote.push(&[[ref_name, &snapshot_ref_name].join(":")], Some(&mut opts))?;
-            info!(
-                "Repo: {}, Pushed snapshot branch to remote: {}",
-                self.name(),
-                remote.name().unwrap_or("unknown")
-            );
+            if let Err(err) =
+                remote.push(&[[ref_name, &snapshot_ref_name].join(":")], Some(&mut opts))
+            {
+                error!(
+                    "Repo: {}, error pushing snapshot branch to remote: {:?}",
+                    self.name(),
+                    err
+                );
+            } else {
+                info!(
+                    "Repo: {}, pushed snapshot branch to remote: {}",
+                    self.name(),
+                    remote.name().unwrap_or("unknown")
+                );
+            }
         }
         Ok(())
     }
