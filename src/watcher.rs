@@ -15,9 +15,14 @@ use std::{
 use tokio::{sync::mpsc::unbounded_channel, time::sleep};
 
 #[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "mode", content = "mode_config")]
 pub enum WatchMode {
     Event,
-    Poll { interval: Duration },
+    Poll {
+        #[serde(with = "humantime_serde")]
+        interval: Duration,
+    },
 }
 
 pub trait Handler {

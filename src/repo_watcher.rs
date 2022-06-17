@@ -14,13 +14,17 @@ use crate::{
 };
 
 #[derive(Debug, Deserialize, Serialize)]
+#[serde(rename = "camelCase")]
 pub struct WatchConfig {
     pub repos: Vec<RepoConfig>,
+    #[serde(flatten)]
     pub mode: WatchMode,
+    #[serde(with = "humantime_serde")]
     pub debounce_period: Duration,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+#[serde(rename = "camelCase")]
 pub struct RepoConfig {
     pub path: PathBuf,
 }
@@ -28,6 +32,22 @@ pub struct RepoConfig {
 type SyncWatcher = Arc<Mutex<Watcher>>;
 
 pub struct RepoWatcher(SyncWatcher);
+
+impl Default for WatchConfig {
+    fn default() -> Self {
+        WatchConfig {
+            repos: Vec::default(),
+            mode: WatchMode::default(),
+            debounce_period: Duration::from_secs(30),
+        }
+    }
+}
+
+impl Default for WatchMode {
+    fn default() -> Self {
+        WatchMode::Event
+    }
+}
 
 impl RepoWatcher {
     pub fn new(config: WatchConfig) -> Result<Self, Error> {
@@ -93,6 +113,25 @@ impl RepoWatcher {
                 }
             }),
         )
+    }
+}
+
+impl WatchConfig {
+    pub fn add_repo(&mut self, p: impl AsRef<Path>) -> Result<(), Error> {
+        let p = canonicalize(p)?;
+        if self.repos.iter().find(|&v| v.path == p).is_none() {
+            self.repos.push(RepoConfig { path: p });
+        }
+        Ok(())
+    }
+
+    pub fn remove_repo(&mut self, p: impl AsRef<Path>) -> Result<(), Error> {
+        let p = canonicalize(p)?;
+        let index = self.repos.iter().position(|v| v.path == p);
+        if let Some(index) = index {
+            self.repos.remove(index);
+        }
+        Ok(())
     }
 }
 

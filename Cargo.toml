@@ -4,6 +4,8 @@ name = "git-snapshot"
 version = "0.1.0"
 
 [dependencies]
+anyhow = "1.0.57"
+dirs = "4.0.0"
 git2 = "0.14.4"
 humantime-serde = "1.1.1"
 log = "0.4.17"
@@ -18,3 +20,8 @@ tokio-stream = {version = "0.1.9", features = ["sync"]}
 
 [dev-dependencies]
 tempfile = "3.3.0"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "z"
