@@ -1,4 +1,4 @@
-use log::error;
+use log::{error, info};
 use serde::{Deserialize, Serialize};
 use serde_json::from_reader;
 use std::{
@@ -101,6 +101,7 @@ impl RepoWatcher {
         watcher.clone().lock().unwrap().watch_path(
             config_path,
             Box::new(move |path: PathBuf| {
+                info!("Watcher detected config change, reloading config...");
                 if let Ok(config) = Self::open_config(&path) {
                     if let Ok(w) = Self::watcher(config) {
                         let mut w_lock = watcher.lock().unwrap();

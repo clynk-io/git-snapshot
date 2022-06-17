@@ -29,6 +29,15 @@ impl Repo {
         &self.git_repo
     }
 
+    pub fn name(&self) -> String {
+        let mut components = self.git_repo.path().components();
+        components
+            .next_back()
+            .and_then(|c| c.as_os_str().to_str())
+            .map(|c| c.to_owned())
+            .unwrap_or("unknown".to_owned())
+    }
+
     pub fn snapshot_branch(config: &Config, current_branch: &str) -> String {
         let snapshot_branch = String::from_config(
             &config,
@@ -53,15 +62,11 @@ impl Repo {
         );
 
         if !enabled {
-            info!("Skipping snapshot for branch: {}", current_branch);
+            info!("Snapshots disabled for branch: {}", current_branch);
             return Ok(());
         }
 
-        info!("Snapshotting branch: {}", current_branch);
-
         let snapshot_branch = Self::snapshot_branch(&config, &current_branch);
-
-        debug!("Snapshot branch: {}", snapshot_branch);
 
         // create full branch ref name, e.g. refs/heads/snapshot/main
         let snapshot_ref_name = [BRANCH_REF_PREFIX, &snapshot_branch].concat();
@@ -117,6 +122,12 @@ impl Repo {
                 .unwrap_or_default(),
         )?;
 
+        info!(
+            "Repo: {}, snapshotted branch: {}",
+            self.name(),
+            current_branch
+        );
+
         self.push(&snapshot_ref_name, &current_branch, &config)
     }
 
@@ -134,11 +145,9 @@ impl Repo {
             );
 
             if !enabled {
-                debug!("Snapshots disabled for remote: {}, skipping", remote);
+                debug!("Snapshots disabled for remote: {}", remote);
                 continue;
             }
-
-            info!("Pushing snapshot to remote: {}", remote);
 
             // Get remote snapshot branch from remote config or default to the local snapshot branch
             let snapshot_branch = String::from_config(
@@ -151,7 +160,6 @@ impl Repo {
 
             let snapshot_ref_name = expand(&snapshot_ref_name, &[(BRANCH_SUB_KEY, current_branch)]);
 
-            println!("Pushing to remote: {}", remote);
             let mut remote = self.git_repo.find_remote(&remote)?;
 
             let config = config.clone();
@@ -183,6 +191,11 @@ impl Repo {
             let mut opts = PushOptions::new();
             opts.remote_callbacks(callbacks);
             remote.push(&[[ref_name, &snapshot_ref_name].join(":")], Some(&mut opts))?;
+            info!(
+                "Repo: {}, Pushed snapshot branch to remote: {}",
+                self.name(),
+                remote.name().unwrap_or("unknown")
+            );
         }
         Ok(())
     }
