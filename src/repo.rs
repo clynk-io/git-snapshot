@@ -187,7 +187,7 @@ impl Repo {
         Ok(())
     }
 
-    fn current_branch(&self) -> Result<String, Error> {
+    pub fn current_branch(&self) -> Result<String, Error> {
         match self.git_repo.head() {
             Ok(reference) => {
                 if !reference.is_branch() || reference.is_remote() {
@@ -219,7 +219,7 @@ pub mod tests {
     use std::path::Path;
 
     use git2::Signature;
-    use tempfile::{tempdir, tempfile_in, NamedTempFile, TempPath};
+    use tempfile::{tempdir, NamedTempFile};
 
     use super::*;
 
@@ -274,7 +274,7 @@ pub mod tests {
     #[test]
     fn snapshot() {
         let temp_dir = tempdir().unwrap();
-        let (repo, config) = test_repo_with_files(temp_dir.path());
+        let (repo, _config) = test_repo_with_files(temp_dir.path());
 
         commit_all(&repo);
 
@@ -290,7 +290,7 @@ pub mod tests {
     #[test]
     fn test_snapshot_empty_branch() {
         let temp_dir = tempdir().unwrap();
-        let (repo, config) = test_repo_with_files(temp_dir.path());
+        let (repo, _config) = test_repo_with_files(temp_dir.path());
 
         let repo = Repo::new(repo);
         repo.snapshot().unwrap();
