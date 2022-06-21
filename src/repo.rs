@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::repo;
+
 use crate::util::{branch_ref_shorthand, expand, ConfigValue, BRANCH_REF_PREFIX};
 use git2::{
     Config, Cred, ErrorCode, Index, IndexAddOption, PushOptions, RemoteCallbacks, Repository,
