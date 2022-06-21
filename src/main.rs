@@ -13,7 +13,7 @@ use std::fs::{create_dir_all, OpenOptions};
 use std::io::ErrorKind;
 use std::str::FromStr;
 
-use pretty_env_logger::formatted_timed_builder;
+use pretty_env_logger::formatted_builder;
 use std::path::{Path, PathBuf};
 use std::thread::park;
 
@@ -108,7 +108,7 @@ enum AppCommands {
 #[tokio::main]
 async fn main() {
     let app = App::from_args();
-    formatted_timed_builder()
+    formatted_builder()
         .filter_level(app.log_level.to_level_filter())
         .format_module_path(false)
         .init();
