@@ -1,4 +1,5 @@
 use crate::error::Error;
+use crate::repo;
 use crate::util::{branch_ref_shorthand, expand, ConfigValue, BRANCH_REF_PREFIX};
 use git2::{
     Config, Cred, ErrorCode, Index, IndexAddOption, PushOptions, RemoteCallbacks, Repository,
@@ -63,8 +64,8 @@ impl Repo {
 
         if !enabled {
             info!(
-                "Repo: {}, snapshots disabled for branch: {}",
-                self.name(),
+                target: self.name(),
+                "snapshots disabled for branch: {}",
                 current_branch
             );
             return Ok(());
@@ -96,7 +97,7 @@ impl Repo {
             None,
         )?;
         if diff.deltas().next().is_none() {
-            info!("No changes from previous snapshot, aborting snapshot");
+            info!(target: self.name(), "No changes from previous snapshot, aborting snapshot");
             return Ok(());
         }
 
@@ -127,9 +128,8 @@ impl Repo {
         )?;
 
         info!(
-            "Repo: {}, snapshotted branch: {}",
-            self.name(),
-            current_branch
+            target: self.name(),
+            "snapshotted branch: {}", current_branch
         );
 
         self.push(&snapshot_ref_name, &current_branch, &config)
@@ -150,8 +150,8 @@ impl Repo {
 
             if !enabled {
                 debug!(
-                    "Repo: {}, snapshots disabled for remote: {}",
-                    self.name(),
+                    target: self.name(),
+                    "snapshots disabled for remote: {}",
                     remote
                 );
                 continue;
@@ -202,14 +202,14 @@ impl Repo {
                 remote.push(&[[ref_name, &snapshot_ref_name].join(":")], Some(&mut opts))
             {
                 error!(
-                    "Repo: {}, error pushing snapshot branch to remote: {:?}",
-                    self.name(),
+                    target:                     self.name(),
+                    "error pushing snapshot branch to remote: {:?}",
                     err
                 );
             } else {
                 info!(
-                    "Repo: {}, pushed snapshot branch to remote: {}",
-                    self.name(),
+                    target:                     self.name(),
+                    "pushed snapshot branch to remote: {}",
                     remote.name().unwrap_or("unknown")
                 );
             }
