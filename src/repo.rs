@@ -1,9 +1,10 @@
 use crate::error::Error;
+use crate::repo;
 use crate::util::{branch_ref_shorthand, expand, ConfigValue, BRANCH_REF_PREFIX};
 use git2::{
     Config, Cred, ErrorCode, Index, IndexAddOption, PushOptions, RemoteCallbacks, Repository,
 };
-use log::{debug, info};
+use log::{debug, error, info};
 use std::path::Path;
 
 const BRANCH_SUB_KEY: &'static str = "BRANCH";
@@ -27,6 +28,15 @@ impl Repo {
 
     pub fn git_repo(&self) -> &Repository {
         &self.git_repo
+    }
+
+    pub fn name(&self) -> &str {
+        let mut components = self.git_repo.path().components();
+        components.next_back();
+        components
+            .next_back()
+            .and_then(|c| c.as_os_str().to_str())
+            .unwrap_or("unknown")
     }
 
     pub fn snapshot_branch(config: &Config, current_branch: &str) -> String {
@@ -53,15 +63,15 @@ impl Repo {
         );
 
         if !enabled {
-            info!("Skipping snapshot for branch: {}", current_branch);
+            info!(
+                target: self.name(),
+                "snapshots disabled for branch: {}",
+                current_branch
+            );
             return Ok(());
         }
 
-        info!("Snapshotting branch: {}", current_branch);
-
         let snapshot_branch = Self::snapshot_branch(&config, &current_branch);
-
-        debug!("Snapshot branch: {}", snapshot_branch);
 
         // create full branch ref name, e.g. refs/heads/snapshot/main
         let snapshot_ref_name = [BRANCH_REF_PREFIX, &snapshot_branch].concat();
@@ -87,7 +97,7 @@ impl Repo {
             None,
         )?;
         if diff.deltas().next().is_none() {
-            info!("No changes from previous snapshot, aborting snapshot");
+            info!(target: self.name(), "No changes from previous snapshot, aborting snapshot");
             return Ok(());
         }
 
@@ -117,6 +127,11 @@ impl Repo {
                 .unwrap_or_default(),
         )?;
 
+        info!(
+            target: self.name(),
+            "snapshotted branch: {}", current_branch
+        );
+
         self.push(&snapshot_ref_name, &current_branch, &config)
     }
 
@@ -134,11 +149,13 @@ impl Repo {
             );
 
             if !enabled {
-                debug!("Snapshots disabled for remote: {}, skipping", remote);
+                debug!(
+                    target: self.name(),
+                    "snapshots disabled for remote: {}",
+                    remote
+                );
                 continue;
             }
-
-            info!("Pushing snapshot to remote: {}", remote);
 
             // Get remote snapshot branch from remote config or default to the local snapshot branch
             let snapshot_branch = String::from_config(
@@ -151,7 +168,6 @@ impl Repo {
 
             let snapshot_ref_name = expand(&snapshot_ref_name, &[(BRANCH_SUB_KEY, current_branch)]);
 
-            println!("Pushing to remote: {}", remote);
             let mut remote = self.git_repo.find_remote(&remote)?;
 
             let config = config.clone();
@@ -182,7 +198,21 @@ impl Repo {
 
             let mut opts = PushOptions::new();
             opts.remote_callbacks(callbacks);
-            remote.push(&[[ref_name, &snapshot_ref_name].join(":")], Some(&mut opts))?;
+            if let Err(err) =
+                remote.push(&[[ref_name, &snapshot_ref_name].join(":")], Some(&mut opts))
+            {
+                error!(
+                    target:                     self.name(),
+                    "error pushing snapshot branch to remote: {:?}",
+                    err
+                );
+            } else {
+                info!(
+                    target:                     self.name(),
+                    "pushed snapshot branch to remote: {}",
+                    remote.name().unwrap_or("unknown")
+                );
+            }
         }
         Ok(())
     }
