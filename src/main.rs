@@ -110,7 +110,6 @@ async fn main() {
     let app = App::from_args();
     formatted_builder()
         .filter_level(app.log_level.to_level_filter())
-        .format_module_path(false)
         .init();
     if let Err(err) = run(app) {
         error!("{:?}", err)
