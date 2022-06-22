@@ -13,6 +13,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+      - name: Build Linux
+        run: cargo build --release
+      - name: Package Linux
+        run: tar -czvf git-snapshot.linux-x86.tar.gz target/release/git-snapshot
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: git-snapshot-linux-x86.tar.gz
       - name: Publish
         uses: katyo/publish-crates@v1
         with:
