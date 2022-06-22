@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::repo;
+
 use crate::util::{branch_ref_shorthand, expand, ConfigValue, BRANCH_REF_PREFIX};
 use git2::{
     Config, Cred, ErrorCode, Index, IndexAddOption, PushOptions, RemoteCallbacks, Repository,
@@ -202,13 +202,13 @@ impl Repo {
                 remote.push(&[[ref_name, &snapshot_ref_name].join(":")], Some(&mut opts))
             {
                 error!(
-                    target:                     self.name(),
+                    target: self.name(),
                     "error pushing snapshot branch to remote: {:?}",
                     err
                 );
             } else {
                 info!(
-                    target:                     self.name(),
+                    target: self.name(),
                     "pushed snapshot branch to remote: {}",
                     remote.name().unwrap_or("unknown")
                 );

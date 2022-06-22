@@ -1,7 +1,6 @@
-use std::{env::var, fmt::Debug};
+use std::env::var;
 
 use git2::Config;
-use log::error;
 use shellexpand::env_with_context_no_errors;
 
 pub const BRANCH_REF_PREFIX: &'static str = "refs/heads/";
@@ -59,15 +58,6 @@ pub fn expand(input: &str, context: &[(&str, &str)]) -> String {
 
 pub fn branch_ref_shorthand(ref_name: &str) -> &str {
     ref_name.trim_start_matches(BRANCH_REF_PREFIX)
-}
-
-#[inline]
-pub fn log_err<T, E: Debug>(r: Result<T, E>) -> Result<T, E> {
-    match r.as_ref() {
-        Err(e) => error!("{:?}", e),
-        _ => (),
-    };
-    return r;
 }
 
 #[cfg(test)]

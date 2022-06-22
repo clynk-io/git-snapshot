@@ -45,11 +45,16 @@ impl Default for WatchConfig {
 
 impl Default for WatchMode {
     fn default() -> Self {
-        WatchMode::Event
+        Self::Event
     }
 }
 
 impl RepoWatcher {
+    /// .
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if .
     pub fn new(config: WatchConfig) -> Result<Self, Error> {
         Ok(Self(Arc::new(Mutex::new(Self::watcher(config)?))))
     }
@@ -85,7 +90,7 @@ impl RepoWatcher {
                 if let Ok(repo) = Repo::from_path(&path) {
                     if !repo.is_ignored(rel).unwrap_or(false) {
                         if let Err(err) = repo.snapshot() {
-                            error!("Repo: {}, snapshot error: {:?}", repo.name(), err);
+                            error!(target: repo.name(), "snapshot error: {:?}", err);
                         }
                     }
                 }

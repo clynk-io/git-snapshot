@@ -1,14 +1,14 @@
 use git_snapshot::repo_watcher::{RepoWatcher, WatchConfig};
 
 use git_snapshot::Repo;
-use log::{error, info, LevelFilter, Log};
+use log::{error, LevelFilter};
 use serde_json::{from_reader, to_writer};
 use structopt::StructOpt;
 
 use anyhow::{anyhow, Error};
-use serde::Deserialize;
+
 use std::env::current_dir;
-use std::fmt::{write, Display};
+use std::fmt::Display;
 use std::fs::{create_dir_all, OpenOptions};
 use std::io::ErrorKind;
 use std::str::FromStr;
@@ -61,7 +61,7 @@ impl FromStr for LogLevel {
             "warn" => Ok(LogLevel::Warn),
             "info" => Ok(LogLevel::Info),
             "debug" => Ok(LogLevel::Debug),
-            _ => Err(anyhow!(format!("Invalid log level: {}", s))),
+            _ => Err(anyhow!("Invalid log level: {}", s)),
         }
     }
 }
@@ -110,7 +110,6 @@ async fn main() {
     let app = App::from_args();
     formatted_builder()
         .filter_level(app.log_level.to_level_filter())
-        .format_module_path(false)
         .init();
     if let Err(err) = run(app) {
         error!("{:?}", err)
