@@ -75,6 +75,7 @@ jobs:
       ARCHIVE_NAME: git-snapshot.linux-aarch64-vendored.tar.gz
     steps:
       - uses: actions/checkout@v3
+      - run: rustup target add aarch64-unknown-linux-gnu
       - name: Build
         run: cargo build --release --target aarch64-unknown-linux-gnu --features vendored
       - name: Package
@@ -141,6 +142,7 @@ jobs:
       ARCHIVE_NAME: git-snapshot.macos-aarch64-vendored.tar.gz
     steps:
       - uses: actions/checkout@v3
+      - run: rustup target add aarch64-apple-darwin
       - name: Build
         run: cargo build --release --target aarch64-apple-darwin --features vendored
       - name: Package
