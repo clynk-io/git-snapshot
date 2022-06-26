@@ -76,6 +76,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: rustup target add aarch64-unknown-linux-gnu
+      - run: apt-get install gcc-aarch64-linux-gnu
       - name: Build
         run: cargo build --release --target aarch64-unknown-linux-gnu --features vendored
       - name: Package
@@ -136,7 +137,7 @@ jobs:
           asset_content_type: application/octet-stream
 
   build-macos-aarch64-vendored:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     needs: create-release
     env:
       ARCHIVE_NAME: git-snapshot.macos-aarch64-vendored.tar.gz
