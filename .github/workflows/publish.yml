@@ -76,7 +76,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: rustup target add aarch64-unknown-linux-gnu
-      - run: apt-get install gcc-aarch64-linux-gnu
+      - run: sudo apt-get install gcc-aarch64-linux-gnu
       - name: Build
         run: cargo build --release --target aarch64-unknown-linux-gnu --features vendored
       - name: Package
