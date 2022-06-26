@@ -25,7 +25,7 @@ tokio-stream = {version = "0.1.9", features = ["sync"]}
 [dev-dependencies]
 tempfile = "3.3.0"
 
-[profile.release]
-codegen-units = 1
-lto = true
-opt-level = "z"
+[features]
+vendored = ["vendored-openssl", "vendored-libgit2"]
+vendored-libgit2 = ["git2/vendored-libgit2"]
+vendored-openssl = ["git2/vendored-openssl"]
