@@ -45,7 +45,7 @@ impl Default for WatchConfig {
 
 impl Default for WatchMode {
     fn default() -> Self {
-        WatchMode::Event
+        Self::Event
     }
 }
 
@@ -54,22 +54,21 @@ impl RepoWatcher {
         Ok(Self(Arc::new(Mutex::new(Self::watcher(config)?))))
     }
 
-    fn open_config(config_path: &Path) -> Result<WatchConfig, Error> {
-        let f = OpenOptions::new().read(true).open(config_path)?;
-        Ok(from_reader(f)?)
-    }
-
     pub fn with_config(config_path: impl AsRef<Path>) -> Result<Self, Error> {
         let config_path = config_path.as_ref();
         let config = Self::open_config(config_path)?;
 
         let debounce_period = config.debounce_period.clone();
 
-        let watcher = Self::watcher(config)?;
-        let watcher = Arc::new(Mutex::new(watcher));
-        Self::watch_config(watcher.clone(), config_path, debounce_period)?;
+        let watcher = Self::new(config)?;
+        Self::watch_config(watcher.0.clone(), config_path, debounce_period)?;
 
-        Ok(Self(watcher))
+        Ok(watcher)
+    }
+
+    fn open_config(config_path: &Path) -> Result<WatchConfig, Error> {
+        let f = OpenOptions::new().read(true).open(config_path)?;
+        Ok(from_reader(f)?)
     }
 
     fn watcher(config: WatchConfig) -> Result<Watcher, Error> {
@@ -247,7 +246,7 @@ mod tests {
         )
         .unwrap();
 
-        sleep(Duration::from_millis(1000)).await;
+        sleep(Duration::from_millis(100)).await;
 
         NamedTempFile::new_in(repo_path1.path())
             .unwrap()
@@ -262,5 +261,39 @@ mod tests {
 
         assert!(!check_snapshot_exists(&repo1));
         assert!(check_snapshot_exists(&repo2));
+    }
+
+    #[test]
+    fn watch_config_add_repo() {
+        let mut config = WatchConfig::default();
+        let p = "/";
+        config.add_repo(p).unwrap();
+        assert_eq!(1, config.repos.len());
+        assert_eq!(Path::new(p), config.repos[0].path);
+    }
+
+    #[test]
+    fn watch_config_add_repo_duplicate() {
+        let mut config = WatchConfig::default();
+        let p = "/";
+        config.add_repo(p).unwrap();
+        config.add_repo(p).unwrap();
+        assert_eq!(1, config.repos.len());
+    }
+
+    #[test]
+    fn watch_config_remove_repo() {
+        let mut config = WatchConfig::default();
+        let p = "/";
+        config.repos.push(RepoConfig { path: p.into() });
+
+        config.remove_repo(p).unwrap();
+        assert_eq!(0, config.repos.len());
+    }
+
+    #[test]
+    fn watch_config_remove_repo_not_exist() {
+        let mut config = WatchConfig::default();
+        config.remove_repo("/").unwrap();
     }
 }

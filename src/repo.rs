@@ -202,13 +202,13 @@ impl Repo {
                 remote.push(&[[ref_name, &snapshot_ref_name].join(":")], Some(&mut opts))
             {
                 error!(
-                    target:                     self.name(),
+                    target: self.name(),
                     "error pushing snapshot branch to remote: {:?}",
                     err
                 );
             } else {
                 info!(
-                    target:                     self.name(),
+                    target: self.name(),
                     "pushed snapshot branch to remote: {}",
                     remote.name().unwrap_or("unknown")
                 );

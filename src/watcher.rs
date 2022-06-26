@@ -161,6 +161,7 @@ mod tests {
             .unwrap();
         (watcher, rx)
     }
+
     #[tokio::test(flavor = "multi_thread")]
     async fn event_watcher() {
         let root = tempdir().unwrap();

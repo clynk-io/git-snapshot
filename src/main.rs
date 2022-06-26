@@ -17,15 +17,6 @@ use pretty_env_logger::formatted_builder;
 use std::path::{Path, PathBuf};
 use std::thread::park;
 
-fn default_config_path() -> Result<PathBuf, Error> {
-    let home = dirs::home_dir().ok_or(anyhow!("Unable to get home directory"))?;
-    Ok(home.join(
-        [".config", "git-snapshot", "config.json"]
-            .iter()
-            .collect::<PathBuf>(),
-    ))
-}
-
 #[derive(Debug)]
 enum LogLevel {
     Off,
@@ -56,24 +47,24 @@ impl FromStr for LogLevel {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "off" => Ok(LogLevel::Off),
-            "error" => Ok(LogLevel::Error),
-            "warn" => Ok(LogLevel::Warn),
-            "info" => Ok(LogLevel::Info),
-            "debug" => Ok(LogLevel::Debug),
+            "off" => Ok(Self::Off),
+            "error" => Ok(Self::Error),
+            "warn" => Ok(Self::Warn),
+            "info" => Ok(Self::Info),
+            "debug" => Ok(Self::Debug),
             _ => Err(anyhow!("Invalid log level: {}", s)),
         }
     }
 }
 
-impl LogLevel {
-    fn to_level_filter(&self) -> LevelFilter {
-        match self {
-            Self::Off => LevelFilter::Off,
-            Self::Error => LevelFilter::Error,
-            Self::Warn => LevelFilter::Warn,
-            Self::Info => LevelFilter::Info,
-            Self::Debug => LevelFilter::Debug,
+impl From<&LogLevel> for LevelFilter {
+    fn from(level: &LogLevel) -> Self {
+        match level {
+            LogLevel::Off => Self::Off,
+            LogLevel::Error => Self::Error,
+            LogLevel::Warn => Self::Warn,
+            LogLevel::Info => Self::Info,
+            LogLevel::Debug => Self::Debug,
         }
     }
 }
@@ -83,24 +74,35 @@ impl LogLevel {
 struct App {
     #[structopt(subcommand)]
     cmds: Option<AppCommands>,
-    #[structopt(default_value, short, long, env = "GIT_SNAPSHOT_LOG_LEVEL")]
+    #[structopt(
+        default_value,
+        short,
+        long,
+        env = "GIT_SNAPSHOT_LOG_LEVEL",
+        about = "error,warn,info,debug"
+    )]
     log_level: LogLevel,
 }
 
 #[derive(Debug, StructOpt)]
 enum AppCommands {
+    #[structopt(about = "Add git repo to watcher config")]
     Watch {
-        #[structopt(short, long, env = "GIT_SNAPSHOT_CONFIG")]
+        #[structopt(short, long, env = "GIT_SNAPSHOT_CONFIG", about = "Config path")]
         config: Option<PathBuf>,
+        #[structopt(about = "Repo path")]
         path: PathBuf,
     },
+    #[structopt(about = "Remove repo from watcher config")]
     Unwatch {
-        #[structopt(short, long, env = "GIT_SNAPSHOT_CONFIG")]
+        #[structopt(short, long, env = "GIT_SNAPSHOT_CONFIG", about = "Config path")]
         config: Option<PathBuf>,
+        #[structopt(about = "repo path")]
         path: PathBuf,
     },
+    #[structopt(about = "Runs the watcher in foreground")]
     StartWatcher {
-        #[structopt(short, long, env = "GIT_SNAPSHOT_CONFIG")]
+        #[structopt(short, long, env = "GIT_SNAPSHOT_CONFIG", about = "config path")]
         config: Option<PathBuf>,
     },
 }
@@ -109,7 +111,7 @@ enum AppCommands {
 async fn main() {
     let app = App::from_args();
     formatted_builder()
-        .filter_level(app.log_level.to_level_filter())
+        .filter_level((&app.log_level).into())
         .init();
     if let Err(err) = run(app) {
         error!("{:?}", err)
@@ -144,6 +146,15 @@ fn run(app: App) -> Result<(), Error> {
     Ok(())
 }
 
+fn default_config_path() -> Result<PathBuf, Error> {
+    let home = dirs::home_dir().ok_or(anyhow!("Unable to get home directory"))?;
+    Ok(home.join(
+        [".config", "git-snapshot", "config.json"]
+            .iter()
+            .collect::<PathBuf>(),
+    ))
+}
+
 fn load_config(p: &Path) -> Result<WatchConfig, Error> {
     match OpenOptions::new().read(true).open(p) {
         Ok(f) => from_reader(f).map_err(From::from),
@@ -166,3 +177,6 @@ fn save_config(p: &Path, config: &WatchConfig) -> Result<(), Error> {
         .open(p)?;
     to_writer(f, config).map_err(From::from)
 }
+
+#[cfg(test)]
+mod tests {}

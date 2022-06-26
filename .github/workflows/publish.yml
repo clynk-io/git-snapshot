@@ -45,6 +45,7 @@ jobs:
           asset_path: ${{ env.ARCHIVE_NAME}}
           asset_name: ${{ env.ARCHIVE_NAME }}
           asset_content_type: application/octet-stream
+
   build-macos-x86_64:
     runs-on: macos-latest
     needs: create-release
@@ -63,6 +64,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ${{ env.ARCHIVE_NAME}}
+          asset_path: ${{ env.ARCHIVE_NAME }}
           asset_name: ${{ env.ARCHIVE_NAME }}
           asset_content_type: application/octet-stream
