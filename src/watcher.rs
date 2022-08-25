@@ -1,6 +1,5 @@
 use notify::{
-    poll::PollWatcherConfig, Event, EventHandler, PollWatcher, RecommendedWatcher,
-    Watcher as NotifyWatcher,
+    Config, Event, EventHandler, PollWatcher, RecommendedWatcher, Watcher as NotifyWatcher,
 };
 use serde::{Deserialize, Serialize};
 
@@ -48,16 +47,13 @@ impl Watcher {
     ) -> Result<BoxedNotifyWatcher, Error> {
         let watcher: BoxedNotifyWatcher = match mode {
             WatchMode::Event => {
-                let watcher = RecommendedWatcher::new(handler)?;
+                let watcher = RecommendedWatcher::new(handler, Config::default())?;
                 Box::new(watcher)
             }
             WatchMode::Poll { interval } => {
-                let watcher = PollWatcher::with_config(
+                let watcher = PollWatcher::new(
                     handler,
-                    PollWatcherConfig {
-                        poll_interval: interval.clone(),
-                        compare_contents: false,
-                    },
+                    Config::default().with_poll_interval(interval.clone()),
                 )?;
                 Box::new(watcher)
             }
